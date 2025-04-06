@@ -1,4 +1,3 @@
-// src/components/RouteMenu.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import Select from 'react-select';
 import '../RouteMenu.css';
@@ -15,6 +14,8 @@ function RouteMenu() {
     const setToRoom = useStore((state) => state.setToRoom);
     const setActiveMenu = useStore((state) => state.setActiveMenu);
     const triggerRouteBuild = useStore((state) => state.triggerRouteBuild);
+
+    const setSelectedSearchRoom = useStore((state) => state.setSelectedSearchRoom);
 
     const roomOptions = useMemo(() => {
         console.log('[RouteMenu] Recalculating roomOptions...');
@@ -54,15 +55,17 @@ function RouteMenu() {
         const startRoom = from ? rooms.find(r => r.id === from.value) : null;
         const endRoom = to ? rooms.find(r => r.id === to.value) : null;
 
-        // Добавленное логирование
-        console.log('[RouteMenu] Objects to set in Zustand:', { startRoom, endRoom });
-        console.log(`[RouteMenu] Start Room Type: ${startRoom?.type}, End Room Type: ${endRoom?.type}`);
-
         console.log('[RouteMenu] handleBuildRoute: From:', startRoom?.id, 'To:', endRoom?.id);
         setFromRoom(startRoom);
         setToRoom(endRoom);
         triggerRouteBuild();
-        setActiveMenu(null);
+
+        if (startRoom) {
+            console.log('[RouteMenu] Centering camera on:', startRoom.id);
+            setSelectedSearchRoom(startRoom); // Используем существующий механизм центрирования
+        }
+
+        setActiveMenu(null); // Закрываем меню маршрута
     };
 
     const filterOption = (option, inputValue) => {

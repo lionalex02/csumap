@@ -1,13 +1,25 @@
 // src/components/RouteMap.jsx
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Shape, Text } from 'react-konva';
-import useStore from './store.jsx'; // Убедись, что путь правильный
-import { buildGraph } from './graph.js'; // Убедись, что путь правильный
-import { findShortestPath } from './dijkstra.js'; // Убедись, что путь правильный
+import useStore from './store.jsx';
+import { buildGraph } from './graph.js';
+import { findShortestPath } from './dijkstra.js';
 
-// Флаг для детального логирования (true для отладки, false для продакшена)
 const DETAILED_DEBUG = false;
 
+function getFloorDisplayName(floorIndex) {
+    if (floorIndex === 4) return '0';
+    if (floorIndex >= 0 && floorIndex <= 3) return String(floorIndex + 1);
+    return `Неизв. (${floorIndex})`;
+}
+
+function getTransitionVerb(fromIndex, toIndex) {
+    if (fromIndex === 4 && toIndex === 0) return "Поднимитесь"; // 0 -> 1
+    if (fromIndex === 0 && toIndex === 4) return "Спуститесь"; // 1 -> 0
+    if (fromIndex < toIndex) return "Поднимитесь";
+    if (fromIndex > toIndex) return "Спуститесь";
+    return "";
+}
 
 function getPathWeight(graph, path) {
     if (!graph || !path || !Array.isArray(path) || path.length < 2) return Infinity;
@@ -56,8 +68,7 @@ function getPointAtDistance(points, distance) {
 
 
 // --- Основной компонент ---
-
-function RouteMap({ currentFloorIndex, mapDataPath = "https://staticstorm.ru/map/map_data2" }) {
+function RouteMap({ currentFloorIndex, mapDataPath}) {
     if (DETAILED_DEBUG) console.log(`%c[RouteMap Render (WITH TRIGGER)] Floor: ${currentFloorIndex}`, 'color: orange; font-weight: bold;');
 
     // Состояния компонента
@@ -68,6 +79,8 @@ function RouteMap({ currentFloorIndex, mapDataPath = "https://staticstorm.ru/map
 
     // Zustand state/actions
     const buildRouteTrigger = useStore((state) => state.buildRouteTrigger);
+    const setIsRouteInstructionsVisible = useStore((state) => state.setIsRouteInstructionsVisible);
+    const setRouteInstructions = useStore((state) => state.setRouteInstructions);
 
     // Ref для отслеживания обработанного триггера
     const processedTriggerRef = useRef(null);
@@ -80,7 +93,7 @@ function RouteMap({ currentFloorIndex, mapDataPath = "https://staticstorm.ru/map
     useEffect(() => { if (DETAILED_DEBUG) console.log(`%c[RM State] graphData updated: Nodes ${graphData.nodeCoords?.size ?? 'null'}`, 'color: green;'); }, [graphData]);
 
     // --- Функция получения ID узла графа ---
-    const getGraphNodeId = useCallback((item, nodeCoordsMap, localSetErrorMsg) => {
+    const getGraphNodeId = useCallback((item, nodeCoordsMap, localSetErrorMsg = setErrorMsg) => {
         if (!item || typeof item !== 'object' || item.id === undefined || item.id === null) { console.warn("[getGraphNodeId] Invalid item:", item); return null; }
         if (!nodeCoordsMap || !(nodeCoordsMap instanceof Map) || nodeCoordsMap.size === 0) { console.error("[getGraphNodeId] nodeCoordsMap invalid."); localSetErrorMsg("Ошибка карты: Координаты не готовы."); return null; }
 
@@ -123,6 +136,8 @@ function RouteMap({ currentFloorIndex, mapDataPath = "https://staticstorm.ru/map
         console.log("%c[RM Effect Load] Загрузка графа...", 'color: purple;');
         setIsLoadingGraph(true); setErrorMsg(null); setCalculatedPath(null);
         let isMounted = true;
+        setIsRouteInstructionsVisible(false);
+        setRouteInstructions([]);
         fetch(mapDataPath)
             .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
             .then(data => { if (!isMounted) return; if (!data?.layers) throw new Error("Нет data.layers"); const pLayers = data.layers.map((l, i) => ({ ...l, floorIndex: i })); console.time("buildGraph"); const { graph, nodeCoords } = buildGraph(pLayers); console.timeEnd("buildGraph"); if (!(graph?.size > 0) || !(nodeCoords?.size > 0)) throw new Error("Граф пуст."); setGraphData({ graph, nodeCoords }); })
@@ -134,82 +149,202 @@ function RouteMap({ currentFloorIndex, mapDataPath = "https://staticstorm.ru/map
     // --- Эффект расчета пути по триггеру ---
     useEffect(() => {
         if (DETAILED_DEBUG) console.log("%c[RM Effect Path (WITH TRIGGER)] Проверка триггера...", 'color: orange;');
-        if (isLoadingGraph) return; // Ждем граф
-        if (buildRouteTrigger === null) { // Триггер не активен
-            if (calculatedPath) setCalculatedPath(null); if (errorMsg) setErrorMsg(null);
-            processedTriggerRef.current = null; return;
-        }
-        if (processedTriggerRef.current === buildRouteTrigger) return; // Триггер уже обработан
+        if (isLoadingGraph) return;
 
-        if (!graphData.graph || !graphData.nodeCoords || graphData.nodeCoords.size === 0) { // Данные графа не готовы
+        if (buildRouteTrigger === null || processedTriggerRef.current === buildRouteTrigger) {
+            if (buildRouteTrigger === null && useStore.getState().isRouteInstructionsVisible) {
+                setIsRouteInstructionsVisible(false);
+                setRouteInstructions([]);
+                setCalculatedPath(null);
+                setErrorMsg(null);
+            }
+            return;
+        }
+
+        if (!graphData.graph || !graphData.nodeCoords || graphData.nodeCoords.size === 0) {
             setErrorMsg("Ошибка карты: Данные для маршрута не готовы.");
-            setCalculatedPath(null); processedTriggerRef.current = buildRouteTrigger; return;
+            processedTriggerRef.current = buildRouteTrigger; return;
         }
 
         // Начинаем обработку
         console.log(`%c[RM Effect Path] Обработка триггера ${buildRouteTrigger}...`, 'color: #1a73e8; font-weight: bold;');
         setCalculatedPath(null); setErrorMsg(null);
+        setIsRouteInstructionsVisible(false);
+        setRouteInstructions([]);
 
 
         const currentFromItem = useStore.getState().fromRoom;
         const currentToItem = useStore.getState().toRoom;
         const { graph, nodeCoords } = graphData;
 
-        if (!currentFromItem || !currentToItem) { // Точки не выбраны
-           // setErrorMsg("Выберите начальную и конечную точки.");
+        if (!currentFromItem || !currentToItem) {
             processedTriggerRef.current = buildRouteTrigger; return;
         }
-        if (currentFromItem.id === currentToItem.id) { // Точки совпадают
-          //  setErrorMsg("Начало и конец маршрута совпадают.");
+        if (currentFromItem.id === currentToItem.id) {
+            setIsRouteInstructionsVisible(false);
+            setRouteInstructions([]);
             processedTriggerRef.current = buildRouteTrigger; return;
         }
 
-        // Получаем ID узлов
-        const startNodeId = getGraphNodeId(currentFromItem, nodeCoords);
-        const endNodeId = getGraphNodeId(currentToItem, nodeCoords);
+        let tempError = null;
+        const localSetError = (msg) => { tempError = msg; };
+        const startNodeId = getGraphNodeId(currentFromItem, nodeCoords, localSetError);
+        if (tempError) { setErrorMsg(tempError); processedTriggerRef.current = buildRouteTrigger; return; }
+        const endNodeId = getGraphNodeId(currentToItem, nodeCoords, localSetError);
+        if (tempError) { setErrorMsg(tempError); processedTriggerRef.current = buildRouteTrigger; return; }
 
+        if (!startNodeId || !endNodeId) {
+            setErrorMsg(tempError || "Не удалось определить узлы для маршрута.");
+            processedTriggerRef.current = buildRouteTrigger; return;
+        }
+        if (startNodeId === endNodeId) {
+            setIsRouteInstructionsVisible(false);
+            setRouteInstructions([]);
+            processedTriggerRef.current = buildRouteTrigger; return;
+        }
 
-
-        // Вызов Дейкстры
         console.time(`Dijkstra ${startNodeId}->${endNodeId}`);
         try {
             const finalPath = findShortestPath(graph, nodeCoords, startNodeId, endNodeId);
-            console.log(`[RM Effect Path] Dijkstra Result (finalPath):`, finalPath); // Лог результата
+            console.log(`[RM Effect Path] Dijkstra Result (finalPath):`, finalPath);
 
             if (!finalPath || !Array.isArray(finalPath) || finalPath.length < 2) {
                 setErrorMsg("Маршрут не найден."); setCalculatedPath(null);
+                setIsRouteInstructionsVisible(false);
+                setRouteInstructions([]);
             } else {
-                const weight = getPathWeight(graph, finalPath); // Проверяем вес
+                const weight = getPathWeight(graph, finalPath);
                 if(weight === Infinity) {
                     setErrorMsg("Ошибка расчета маршрута (разрыв)."); setCalculatedPath(null);
+                    setIsRouteInstructionsVisible(false);
+                    setRouteInstructions([]);
                 } else {
                     if (DETAILED_DEBUG) console.log(`[RM Effect Path] УСПЕХ! Путь найден (${finalPath.length} узлов), вес: ${weight.toFixed(1)}`);
-                    setCalculatedPath(finalPath); // Устанавливаем путь
+                    setCalculatedPath(finalPath);
                     setErrorMsg(null);
+
+                    const instructionsArray = [];
+                    let lastSignificantNodeIndex = 0; // Индекс узла, где начался/закончился значимый сегмент или переход
+                    let currentInstructionFloorIndex = nodeCoords.get(startNodeId)?.floorIndex; // Этаж, на котором происходит текущий сегмент
+
+                    if (currentInstructionFloorIndex === undefined) {
+                        throw new Error("Не удалось определить этаж начального узла.");
+                    }
+
+                    for (let i = 1; i < finalPath.length; i++) {
+                        const prevNodeData = nodeCoords.get(finalPath[i - 1]);
+                        const currNodeData = nodeCoords.get(finalPath[i]);
+
+                        if (!prevNodeData || !currNodeData) continue;
+
+                        // Обнаружена смена этажа
+                        if (prevNodeData.floorIndex !== currNodeData.floorIndex) {
+                            // 1. Добавляем инструкцию "Следуйте..." для предыдущего сегмента, если он был значимым
+                            if (i - lastSignificantNodeIndex > 1) {
+                                instructionsArray.push(`Следуйте по маршруту на ${getFloorDisplayName(prevNodeData.floorIndex)} этаже`);
+                            } else if (instructionsArray.length === 0) {
+                                // Если самый первый шаг - это переход
+                                instructionsArray.push(`Начните движение на ${getFloorDisplayName(prevNodeData.floorIndex)} этаже`);
+                            }
+
+                            // 2. Определяем КОНЕЧНЫЙ этаж этой серии переходов
+                            let finalTransitionNodeIndex = i;
+                            let initialDirection = getTransitionVerb(prevNodeData.floorIndex, currNodeData.floorIndex); // up or down
+                            let usesStairs = finalPath[i-1].includes('ladder') || finalPath[i].includes('ladder');
+
+                            while (finalTransitionNodeIndex + 1 < finalPath.length) {
+                                const nextNodeData = nodeCoords.get(finalPath[finalTransitionNodeIndex + 1]);
+                                const currentTransitionNodeData = nodeCoords.get(finalPath[finalTransitionNodeIndex]);
+                                if (!nextNodeData || !currentTransitionNodeData) break; // Ошибка данных
+
+                                // Проверяем, продолжается ли смена этажа В ТОМ ЖЕ НАПРАВЛЕНИИ
+                                if (currentTransitionNodeData.floorIndex !== nextNodeData.floorIndex) {
+                                    const nextDirection = getTransitionVerb(currentTransitionNodeData.floorIndex, nextNodeData.floorIndex);
+                                    if (nextDirection === initialDirection) {
+                                        // Переход продолжается
+                                        finalTransitionNodeIndex++;
+                                        if (finalPath[finalTransitionNodeIndex].includes('ladder')) usesStairs = true;
+                                    } else {
+                                        // Направление сменилось или переход закончился
+                                        break;
+                                    }
+                                } else {
+                                    // Переход закончился, началось движение по этажу
+                                    break;
+                                }
+                            }
+
+                            // 3. Генерируем ОДНУ инструкцию для всего перехода
+                            const targetFloorIndex = nodeCoords.get(finalPath[finalTransitionNodeIndex]).floorIndex;
+                            const targetFloorName = getFloorDisplayName(targetFloorIndex);
+                            const verb = getTransitionVerb(prevNodeData.floorIndex, targetFloorIndex); // Глагол для ВСЕГО перехода
+
+                            if (verb) {
+                                let step = `${verb} на ${targetFloorName} этаж`;
+                                if (usesStairs) {
+                                    step += " по лестнице";
+                                }
+                                instructionsArray.push(step);
+                            }
+
+                            // 4. Обновляем состояние для следующей итерации
+                            currentInstructionFloorIndex = targetFloorIndex;
+                            lastSignificantNodeIndex = finalTransitionNodeIndex;
+                            i = finalTransitionNodeIndex; // Пропускаем промежуточные узлы перехода
+                        }
+                        // Если смена этажа не обнаружена, цикл продолжается
+                    }
+
+                    // Добавляем финальную инструкцию "Следуйте до пункта назначения" для последнего сегмента
+                    if (finalPath.length - 1 - lastSignificantNodeIndex > 0) {
+                        const finalSegmentFloor = nodeCoords.get(finalPath[lastSignificantNodeIndex])?.floorIndex;
+                        if (finalSegmentFloor !== undefined) {
+                            instructionsArray.push(`Следуйте по маршруту на ${getFloorDisplayName(finalSegmentFloor)} этаже до пункта назначения`);
+                        }
+                    } else if (instructionsArray.length === 0 && finalPath.length > 0) {
+                        // Весь маршрут на одном этаже
+                        const floorIndex = nodeCoords.get(finalPath[0])?.floorIndex;
+                        if (floorIndex !== undefined) {
+                            instructionsArray.push(`Следуйте по маршруту на ${getFloorDisplayName(floorIndex)} этаже до пункта назначения`);
+                        }
+                    } else if (instructionsArray.length > 0 && finalPath.length -1 === lastSignificantNodeIndex) {
+                        // Если последний шаг был переход
+                        const finalFloorIdx = nodeCoords.get(finalPath[finalPath.length-1])?.floorIndex;
+                        if (finalFloorIdx !== undefined) {
+                            instructionsArray.push(`Вы прибыли на ${getFloorDisplayName(finalFloorIdx)} этаж`);
+                        }
+                    }
+
+
+                    if (DETAILED_DEBUG) console.log("[RM Effect Path] Сгенерированные инструкции (v2):", instructionsArray);
+
+                    setRouteInstructions(instructionsArray.length > 0 ? instructionsArray : ["Маршрут построен."]);
                 }
             }
         } catch (dijkstraError) {
             console.error("[RM Effect Path] Ошибка Дейкстры:", dijkstraError);
             setErrorMsg(`Ошибка поиска пути: ${dijkstraError.message}`);
             setCalculatedPath(null);
+            setIsRouteInstructionsVisible(false);
+            setRouteInstructions([]);
         } finally {
             console.timeEnd(`Dijkstra ${startNodeId}->${endNodeId}`);
             processedTriggerRef.current = buildRouteTrigger; // Помечаем обработанным
         }
-    }, [graphData, isLoadingGraph, buildRouteTrigger, getGraphNodeId]); // Зависимости
+    }, [graphData, isLoadingGraph, buildRouteTrigger, getGraphNodeId, setIsRouteInstructionsVisible, setRouteInstructions]);
 
 
-// --- Мемоизация рендеринга шевронов ---
     const renderedPathChevrons = useMemo(() => {
         const startMemoTime = performance.now();
         if (DETAILED_DEBUG) console.log('%c[RM Memo Chevrons] Запуск...', 'color: #2a9d8f;');
 
-        if (errorMsg || !calculatedPath || calculatedPath.length < 2) return [];
+        const routeIsActive = useStore.getState().buildRouteTrigger !== null;
+        if (!routeIsActive || errorMsg || !calculatedPath || calculatedPath.length < 2) return [];
+
         const nodeCoords = graphData.nodeCoords;
         if (!nodeCoords || nodeCoords.size === 0) return [];
 
-        // Константы стиля
-        // const CHEVRON_COLOR = 'red'; // Закомментирована, так как цвет задается напрямую
+        const CHEVRON_COLOR = 'red';
         const CHEVRON_SIZE = 8;
         const CHEVRON_ANGLE_DEG = 50;
         const CHEVRON_SPACING = 15;
@@ -302,22 +437,16 @@ function RouteMap({ currentFloorIndex, mapDataPath = "https://staticstorm.ru/map
                         key={`c-s${segmentIndex}-d${currentDistance.toFixed(0)}`}
                         sceneFunc={(ctx) => {
                             // !!! ЗАДАЕМ СТИЛЬ ПРЯМО ЗДЕСЬ !!!
-                            ctx.strokeStyle = "red"; // Попробуем зеленый
-                            ctx.lineWidth = 2.5;        // И еще толще
+                            ctx.strokeStyle = "red";
+                            ctx.lineWidth = 2.5;
                             ctx.lineCap = "round";
                             ctx.lineJoin = "round";
-                            // ---------------------------------
                             ctx.beginPath();
                             ctx.moveTo(bp1.x, bp1.y);
                             ctx.lineTo(tipPoint.x, tipPoint.y);
                             ctx.lineTo(bp2.x, bp2.y);
                             ctx.stroke();
                         }}
-                        // Уберем пропсы стиля отсюда, раз задаем в sceneFunc
-                        // stroke={"blue"}
-                        // strokeWidth={CHEVRON_STROKE_WIDTH}
-                        // lineCap="round"
-                        // lineJoin="round"
                         listening={false}
                         perfectDrawEnabled={false}
                     />
@@ -331,11 +460,11 @@ function RouteMap({ currentFloorIndex, mapDataPath = "https://staticstorm.ru/map
         const duration = performance.now() - startMemoTime;
         if (DETAILED_DEBUG) console.log(`%c[RM Memo Chevrons] Завершение (${duration.toFixed(1)}ms). Итого шевронов: ${allChevrons.length}`, 'color: #2a9d8f; font-weight: bold;');
         return allChevrons;
-    }, [calculatedPath, graphData.nodeCoords, currentFloorIndex, errorMsg]);
+    }, [calculatedPath, graphData.nodeCoords, currentFloorIndex, errorMsg, buildRouteTrigger]);
 
 
     // --- Финальный рендер компонента ---
-    if (isLoadingGraph) return null; // Не рендерим, пока грузится
+    if (isLoadingGraph) return null;
     if (errorMsg) {
         // Показываем ошибку
         return ( <Text x={20} y={50} text={`Ошибка маршрута: ${errorMsg}`} fill="darkred" fontSize={14} fontStyle="bold" listening={false} wrap="char" width={window.innerWidth ? window.innerWidth - 40 : 400} /> );
