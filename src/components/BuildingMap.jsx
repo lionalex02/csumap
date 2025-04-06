@@ -498,9 +498,9 @@ function BuildingMap({isMapActive}) {
                     shadowEnabled: false,
                     align: 'center',
                     verticalAlign: 'middle',
-                    fontFamily: "'Noto Sans', sans-serif",
+                    fontFamily: "'Nunito', sans-serif",
                     fontOpticalSizing: 'auto',
-                    fontWeight: 400,
+                    fontWeight: 500,
                     fontStyle: 'normal',
             };
 
