@@ -59,6 +59,10 @@
 }
 
 .building-option-button {
+    font-family: "Nunito", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: bold;
+    font-style: normal;
     padding: 12px 20px;
     font-size: 16px;
     border: 2px solid #d6322d; /* Red border */
@@ -67,7 +71,6 @@
     border-radius: 50px; /* Rounded corners like RouteMenu buttons */
     cursor: pointer;
     transition: background-color 0.3s ease, color 0.3s ease;
-    font-weight: bold;
 }
 
 .building-option-button:hover {
