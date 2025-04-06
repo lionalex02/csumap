@@ -498,7 +498,11 @@ function BuildingMap({isMapActive}) {
                     shadowEnabled: false,
                     align: 'center',
                     verticalAlign: 'middle',
-                };
+                    fontFamily: "'Noto Sans', sans-serif",
+                    fontOpticalSizing: 'auto',
+                    fontWeight: 400,
+                    fontStyle: 'normal',
+            };
 
 
                 if (room.data && typeof room.data === 'string') {
