@@ -25,7 +25,9 @@ function getPathWeight(graph, path) {
     return totalWeight;
 }
 
-function RouteMap({ currentFloorIndex, mapDataPath = "https://staticstorm.ru/map/map_data2" }) {
+// --- Основной компонент ---
+function RouteMap({ currentFloorIndex, mapDataPath }) {
+    // --- Стейты ---
     const fromItem = useStore((state) => state.fromRoom);
     const toItem = useStore((state) => state.toRoom);
     const [graphData, setGraphData] = useState({ graph: new Map(), nodeCoords: new Map() });

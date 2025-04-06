@@ -119,7 +119,7 @@ function BuildingMap({ isMapActive }) {
     useEffect(() => {
         let isMounted = true;
         console.log("RouteMap: Загрузка данных карты...");
-        fetch("https://staticstorm.ru/map/map_data2")
+        fetch(MAP_DATA_PATH)
             .then((response) => {
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 return response.json();
