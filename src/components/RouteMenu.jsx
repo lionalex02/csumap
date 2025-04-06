@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/components/RouteMenu.jsx
+import React, { useState, useEffect, useMemo } from 'react';
 import Select from 'react-select';
 import '../RouteMenu.css';
 import useStore from './store.jsx';
@@ -6,45 +7,78 @@ import useStore from './store.jsx';
 function RouteMenu() {
     const [from, setFrom] = useState(null);
     const [to, setTo] = useState(null);
+
     const rooms = useStore((state) => state.rooms);
     const fromRoom = useStore((state) => state.fromRoom);
     const toRoom = useStore((state) => state.toRoom);
     const setFromRoom = useStore((state) => state.setFromRoom);
     const setToRoom = useStore((state) => state.setToRoom);
     const setActiveMenu = useStore((state) => state.setActiveMenu);
+    const triggerRouteBuild = useStore((state) => state.triggerRouteBuild);
 
-    // Фильтрация только тех комнат, у которых есть name
-    const roomOptions = rooms
-        .filter(room => room.name !== null && room.name !== undefined && room.name !== '')
-        .map((room) => ({
-            value: room.id,
-            label: room.description ? `${room.name} (${room.description})` : room.name
-        }));
+    const roomOptions = useMemo(() => {
+        console.log('[RouteMenu] Recalculating roomOptions...');
+        return rooms
+            .filter(room => room && room.id && (room.name || room.description))
+            .map((room) => ({
+                value: room.id,
+                label: room.description ? `${room.name} (${room.description})` : (room.name || `ID: ${room.id}`),
+                searchKey: `${room.name || ''} ${room.description || ''} ${room.id}`.toLowerCase()
+            }));
+    }, [rooms]);
 
     useEffect(() => {
         if (fromRoom) {
-            setFrom({
-                value: fromRoom.id,
-                label: fromRoom.description ? `${fromRoom.name} (${fromRoom.description})` : fromRoom.name
-            });
+            const option = roomOptions.find(opt => opt.value === fromRoom.id);
+            if (from?.value !== option?.value) {
+                setFrom(option || null);
+            }
+        } else {
+            if (from !== null) setFrom(null);
         }
-    }, [fromRoom]);
+    }, [fromRoom, roomOptions]);
 
     useEffect(() => {
         if (toRoom) {
-            setTo({
-                value: toRoom.id,
-                label: toRoom.description ? `${toRoom.name} (${toRoom.description})` : toRoom.name
-            });
+            const option = roomOptions.find(opt => opt.value === toRoom.id);
+            if (to?.value !== option?.value) {
+                setTo(option || null);
+            }
+        } else {
+            if (to !== null) setTo(null);
         }
-    }, [toRoom]);
+    }, [toRoom, roomOptions]);
 
+    // Обработчик нажатия кнопки "Построить маршрут"
     const handleBuildRoute = () => {
         const startRoom = from ? rooms.find(r => r.id === from.value) : null;
         const endRoom = to ? rooms.find(r => r.id === to.value) : null;
+
+        // Добавленное логирование
+        console.log('[RouteMenu] Objects to set in Zustand:', { startRoom, endRoom });
+        console.log(`[RouteMenu] Start Room Type: ${startRoom?.type}, End Room Type: ${endRoom?.type}`);
+
+        console.log('[RouteMenu] handleBuildRoute: From:', startRoom?.id, 'To:', endRoom?.id);
         setFromRoom(startRoom);
         setToRoom(endRoom);
-        setActiveMenu(null)
+        triggerRouteBuild();
+        setActiveMenu(null);
+    };
+
+    const filterOption = (option, inputValue) => {
+        if (!inputValue) return true;
+
+        const lowerInput = inputValue.toLowerCase();
+
+        const labelMatch = option && typeof option.label === 'string'
+            ? option.label.toLowerCase().includes(lowerInput)
+            : false;
+
+        const searchKeyMatch = option && typeof option.searchKey === 'string'
+            ? option.searchKey.includes(lowerInput)
+            : false;
+
+        return labelMatch || searchKeyMatch;
     };
 
     return (
@@ -55,32 +89,26 @@ function RouteMenu() {
                     placeholder="Откуда"
                     options={roomOptions}
                     value={from}
-                    onChange={(selected) => {
-                        const room = rooms.find(r => r.id === selected.value);
-                        setFrom({
-                            value: room.id,
-                            label: room.description ? `${room.name} (${room.description})` : room.name
-                        });
-                    }}
+                    onChange={setFrom}
+                    filterOption={filterOption}
                     className="route-select"
                     classNamePrefix="route-select"
+                    isClearable
+                    noOptionsMessage={() => 'Не найдено'}
                 />
                 <Select
                     placeholder="Куда"
                     options={roomOptions}
                     value={to}
-                    onChange={(selected) => {
-                        const room = rooms.find(r => r.id === selected.value);
-                        setTo({
-                            value: room.id,
-                            label: room.description ? `${room.name} (${room.description})` : room.name
-                        });
-                    }}
+                    onChange={setTo}
+                    filterOption={filterOption}
                     className="route-select"
                     classNamePrefix="route-select"
+                    isClearable
+                    noOptionsMessage={() => 'Не найдено'}
                 />
             </div>
-            <button onClick={handleBuildRoute}>
+            <button onClick={handleBuildRoute} disabled={!from || !to}>
                 Построить маршрут
             </button>
         </div>

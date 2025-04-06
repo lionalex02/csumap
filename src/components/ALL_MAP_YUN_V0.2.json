@@ -4214,18 +4214,17 @@
         {"id": "road_lobby2_r_231a_to_r_225_12", "x1": 500, "y1": 1480, "x2": 500, "y2": 1510, "stroke": "", "strokeWidth": 1},
         {"id": "road_lobby2_r_231a_to_r_225_13", "x1": 500, "y1": 1510, "x2": 500, "y2": 1540, "stroke": "", "strokeWidth": 1},
         {"id": "road_lobby2_r_231a_to_r_225_14", "x1": 500, "y1": 1540, "x2": 500, "y2": 1570, "stroke": "", "strokeWidth": 1},
-        {"id": "road_lobby2_r_231a_to_r_225_15", "x1": 500, "y1": 1570, "x2": 500, "y2": 1600, "stroke": "", "strokeWidth": 1},
-        {"id": "road_lobby2_r_231a_to_r_225_16", "x1": 500, "y1": 1600, "x2": 500, "y2": 1630, "stroke": "", "strokeWidth": 1},
-        {"id": "road_lobby2_r_231a_to_r_225_17", "x1": 500, "y1": 1630, "x2": 500, "y2": 1660, "stroke": "", "strokeWidth": 1},
-        {"id": "road_lobby2_r_231a_to_r_225_18", "x1": 500, "y1": 1660, "x2": 500, "y2": 1670, "stroke": "", "strokeWidth": 1},
 
         {"id": "road_lobby2_r_222a_ladder2_2_4", "x1": 500, "y1": 1220, "x2": 470, "y2": 1220, "stroke": "", "strokeWidth": 1},
         {"id": "road_lobby2_r_222a_ladder2_2_5", "x1": 470, "y1": 1220, "x2": 430, "y2": 1220, "stroke": "", "strokeWidth": 1},
         {"id": "road_lobby2_r_222a_ladder2_2_6", "x1": 430, "y1": 1220, "x2": 400, "y2": 1220, "stroke": "", "strokeWidth": 1},
 
-        {"id": "road_lobby2_r_225_r_115a_1", "x1": 500, "y1": 1670, "x2": 530, "y2": 1670, "stroke": "", "strokeWidth": 1},
-        {"id": "road_lobby2_r_225_r_115a_2", "x1": 530, "y1": 1670, "x2": 560, "y2": 1670, "stroke": "", "strokeWidth": 1},
-        {"id": "road_lobby2_r_225_r_115a_3", "x1": 560, "y1": 1670, "x2": 590, "y2": 1670, "stroke": "", "strokeWidth": 1},
+        {"id": "road_lobby2_r_231a_to_r_225_15", "x1": 500, "y1": 1570, "x2": 518, "y2": 1590, "stroke": "", "strokeWidth": 1},
+        {"id": "road_lobby2_r_231a_to_r_225_16", "x1": 518, "y1": 1590, "x2": 536, "y2": 1610, "stroke": "", "strokeWidth": 1},
+        {"id": "road_lobby2_r_231a_to_r_225_17", "x1": 536, "y1": 1610, "x2": 554, "y2": 1630, "stroke": "", "strokeWidth": 1},
+        {"id": "road_lobby2_r_231a_to_r_225_18", "x1": 554, "y1": 1630, "x2": 572, "y2": 1650, "stroke": "", "strokeWidth": 1},
+        {"id": "road_lobby2_r_231a_to_r_225_19", "x1": 572, "y1": 1650, "x2": 590, "y2": 1670, "stroke": "", "strokeWidth": 1},
+
         {"id": "road_lobby2_r_225_r_115a_4", "x1": 590, "y1": 1670, "x2": 620, "y2": 1670, "stroke": "", "strokeWidth": 1},
         {"id": "road_lobby2_r_225_r_115a_5", "x1": 620, "y1": 1670, "x2": 650, "y2": 1670, "stroke": "", "strokeWidth": 1},
         {"id": "road_lobby2_r_225_r_115a_6", "x1": 650, "y1": 1670, "x2": 680, "y2": 1670, "stroke": "", "strokeWidth": 1},
@@ -4251,6 +4250,8 @@
         {"id": "road_lobby2_r_225_r_115a_26", "x1": 1250, "y1": 1670, "x2": 1280, "y2": 1670, "stroke": "", "strokeWidth": 1},
         {"id": "road_lobby2_r_225_r_115a_27", "x1": 1280, "y1": 1670, "x2": 1310, "y2": 1670, "stroke": "", "strokeWidth": 1},
 
+        {"id": "road_lobby2_hall_into_theatre_0_1", "x1": 545, "y1": 1620, "x2": 545, "y2": 1640, "stroke": "", "strokeWidth": 1},
+        {"id": "road_lobby2_hall_into_theatre_0_2", "x1": 545, "y1": 1640, "x2": 545, "y2": 1670, "stroke": "", "strokeWidth": 1},
         {"id": "road_lobby2_hall_into_theatre_1", "x1": 545, "y1": 1670, "x2": 545, "y2": 1700, "stroke": "", "strokeWidth": 1},
         {"id": "road_lobby2_hall_into_theatre_2", "x1": 545, "y1": 1700, "x2": 545, "y2": 1730, "stroke": "", "strokeWidth": 1},
         {"id": "road_lobby2_hall_into_theatre_3", "x1": 545, "y1": 1730, "x2": 545, "y2": 1760, "stroke": "", "strokeWidth": 1},

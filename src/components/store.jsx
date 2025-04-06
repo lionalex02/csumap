@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import {create} from 'zustand';
 
 export const availableBuildings = [
     { id: 'building1', name: 'Корпус 1' },
@@ -9,20 +9,24 @@ export const availableBuildings = [
 const useStore = create((set) => ({
     fromRoom: null,
     toRoom: null,
-    rooms: [],
+    rooms: [ ],
     activeMenu: null,
     selectedSearchRoom: null,
-    isBuildingModalOpen: false,
-    selectedBuilding: availableBuildings[0],
+    buildRouteTrigger: null, // Триггер (null или timestamp)
 
 
-    setFromRoom: (room) => set({ fromRoom: room }),
-    setToRoom: (room) => set({ toRoom: room }),
-    setRooms: (rooms) => set({ rooms }),
-    setActiveMenu: (menu) => set({ activeMenu: menu }),
-    setSelectedSearchRoom: (room) => set({ selectedSearchRoom: room }),
+    // Существующие actions
+    setFromRoom: (room) => set({fromRoom: room}),
+    setToRoom: (room) => set({toRoom: room}),
+    setRooms: (rooms) => set({rooms}),
+    setActiveMenu: (menu) => set({activeMenu: menu}),
+    setSelectedSearchRoom: (room) => set({selectedSearchRoom: room}),
     setIsBuildingModalOpen: (isOpen) => set({ isBuildingModalOpen: isOpen }),
     setSelectedBuilding: (building) => set({ selectedBuilding: building }),
+    triggerRouteBuild: () => set({ buildRouteTrigger: Date.now() }), // Action для триггера
+
+    isBuildingModalOpen: false,
+    selectedBuilding: availableBuildings[0],
 }));
 
 export default useStore;
