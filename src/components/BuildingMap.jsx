@@ -485,7 +485,7 @@ function BuildingMap({ isMapActive }) {
 
             const textProps = {
                 text: room.name || '',
-                fontSize: room.fontSize || 14,
+                fontSize: room.fontSize || 13,
                 fill: '#333',
                 listening: false,
                 perfectDrawEnabled: false,
