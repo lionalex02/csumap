@@ -1,29 +1,177 @@
-.settings-menu {
+.settings-menu-overlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: white;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    z-index: 1005;
     padding: 20px;
-    z-index: 1001;
+    box-sizing: border-box;
+    cursor: pointer;
+    overflow: hidden;
+}
+.settings-content {
+    background-color: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(220, 38, 38, 0.1);
+    max-width: 500px;
+    width: 90%;
+    position: relative;
+    border: 1px solid rgba(220, 38, 38, 0.1);
+    z-index: 1006;
+    cursor: default;
+    box-sizing: border-box;
+
+    margin-top: auto;
+    margin-bottom: auto;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+
+.close-button {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(220, 38, 38, 0.1);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #DC2626;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    z-index: 1007;
+}
+.close-button:hover {
+    background: rgba(220, 38, 38, 0.2);
+}
+.close-x {
+    font-size: 24px;
+    line-height: 1;
+    font-weight: 300;
+}
+
+.settings-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #DC2626;
+    margin-top: 0;
+    margin-bottom: 5px;
+    text-align: center;
+    letter-spacing: -0.5px;
+}
+
+.settings-divider {
+    height: 2px;
+    background: linear-gradient(90deg, rgba(220, 38, 38, 0.1), rgba(220, 38, 38, 0.5), rgba(220, 38, 38, 0.1));
+    margin: 20px 0;
+    border-radius: 2px;
+}
+
+.authors-section {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    gap: 16px;
 }
 
-.settings-menu h2 {
-    margin-bottom: 20px;
+.authors-heading {
+    font-size: 20px;
+    font-weight: 600;
+    color: #DC2626;
+    margin-top: 0;
+    margin-bottom: 8px;
+    text-align: center;
+    user-select: none;
 }
 
-.settings-menu p {
+.author-item p {
     font-size: 16px;
-    color: #333;
+    color: #4B5563;
+    line-height: 1.5;
+    margin: 0 0 8px 0;
+    text-align: center;
 }
+.author-item:last-child p {
+    margin-bottom: 0;
+}
+
+.author-name {
+    color: #111827;
+    font-weight: 500;
+}
+
+.social-links { display: flex; gap: 12px; justify-content: flex-start; margin-left: 20px; margin-top: 4px; }
+.social-link { font-size: 14px; color: #4B5563; text-decoration: none; transition: color 0.2s; font-weight: 500; padding: 2px 8px; border-radius: 4px; background-color: rgba(220, 38, 38, 0.1); }
+.social-link:hover { color: #DC2626; background-color: rgba(220, 38, 38, 0.15); }
+
+.rickroll {
+    position: relative;
+    color: #DC2626;
+    cursor: pointer;
+    transition: color 0.2s;
+    font-weight: 500;
+}
+.rickroll:hover {
+    text-decoration: underline;
+}
+.rickroll:after {
+    content: '🔗';
+    font-size: 14px;
+    margin-left: 5px;
+    display: inline-block;
+}
+
+.cat-easter-egg {
+    position: fixed;
+    bottom: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: auto;
+    transition: bottom 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+    z-index: 9999;
+    pointer-events: none;
+}
+.cat-easter-egg img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+}
+.cat-easter-egg.show {
+    bottom: 30px;
+    animation: bounce 0.5s ease-in-out;
+}
+
 
 @media (max-width: 480px) {
-    .settings-menu p{
+    .settings-content {
+        padding: 30px 20px;
+        width: 95%;
+        max-height: calc(100vh - 20px);
+    }
+    .settings-title {
+        font-size: 24px;
+    }
+    .author-item p {
         font-size: 14px;
     }
+    .cat-easter-egg {
+        width: 100px;
+    }
+    .cat-easter-egg.show {
+        bottom: 15px;
+    }
 }
+
+.settings-content::-webkit-scrollbar { width: 6px; }
+.settings-content::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+.settings-content::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+.settings-content::-webkit-scrollbar-thumb:hover { background: #aaa; }
