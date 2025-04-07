@@ -4,22 +4,21 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import RoomInfoModal from "./RoomInfoModal.jsx";
 import '../BuildingMap.css';
 import useStore from './store.jsx';
-import RouteMap from "./RouteMap.jsx";
+import RouteMap from "./RouteMap.jsx"; // RouteMap теперь читает этаж из стора
 
-const MAP_DATA_URL = 'https://staticstorm.ru/map/map_data2';
-const DETAILED_LOGGING = true;
-const DETAILED_DEBUG = true;
+const MAP_DATA_URL = 'src/components/ALL_MAP_YUN_V0.2.json';
+const DETAILED_LOGGING = false;
+const DETAILED_DEBUG = false;
 
 function BuildingMap({ isMapActive }) {
     if (DETAILED_LOGGING) console.log(`%c[BuildingMap Render Start] Props: isMapActive=${isMapActive}`, 'color: blue; font-weight: bold;');
 
-    // Mobile detection and initial stage settings
     const isMobileDevice = useCallback(() => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent), []);
     const [stageScale, setStageScale] = useState(() => isMobileDevice() ? 0.3 : 0.5);
     const [stageX, setStageX] = useState(() => isMobileDevice() ? -80 : 250);
     const [stageY, setStageY] = useState(() => isMobileDevice() ? 0 : -150);
     const [isZooming, setIsZooming] = useState(false);
-    const [curLayer, setCurLayer] = useState(0);
+    const [curLayer, setCurLayer] = useState(0); // Оставляем локальное состояние этажа
     const [layers, setLayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
@@ -32,6 +31,11 @@ function BuildingMap({ isMapActive }) {
     const selectedSearchRoom = useStore((state) => state.selectedSearchRoom);
     const setSelectedSearchRoomAction = useStore((state) => state.setSelectedSearchRoom);
     const selectedBuilding = useStore((state) => state.selectedBuilding);
+    // Убирал я зависимость от currentMapFloor из стора
+    // const currentMapFloor = useStore((state) => state.currentMapFloor);
+    // const setCurrentMapFloor = useStore((state) => state.setCurrentMapFloor);
+    // const setGraphData = useStore((state) => state.setGraphData); // Убираем, если не используется здесь
+
     const lastCenterRef = useRef(null);
     const lastDistRef = useRef(0);
     const stageRef = useRef(null);
@@ -41,11 +45,11 @@ function BuildingMap({ isMapActive }) {
         console.log("Selected building changed in store:", selectedBuilding);
         if (selectedBuilding) {
             const defaultFloorForBuilding = 0;
-            setCurLayer(defaultFloorForBuilding);
+            setCurLayer(defaultFloorForBuilding); // Используем локальное состояние
         }
     }, [selectedBuilding]);
 
-    // Utility functions
+
     const getCenter = (p1, p2) => ({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
     const getDistance = (p1, p2) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
 
@@ -147,9 +151,14 @@ function BuildingMap({ isMapActive }) {
                     };
                 }).filter(Boolean);
                 setLayers(processedLayers);
-                const allRoomsForStore = processedLayers
-                    .flatMap(layer => [...(layer.rooms || []), ...(layer.vectors || []).filter(v => v.type === 'icon' && v.name)])
-                    .filter(item => item && item.id && item.type !== 'stair' && item.name)
+
+                const allRoomsAndIconsForStore = processedLayers
+                    .flatMap(layer => [
+                        ...(layer.rooms || []),
+                        ...(layer.vectors || []).filter(v => v.type === 'icon') // Включаем все иконки, фильтр будет в UI
+                    ])
+                    // Фильтруем: есть ID, не лестница, И (есть имя ИЛИ есть описание)
+                    .filter(item => item && item.id && item.type !== 'stair' && (item.name || item.description))
                     .map(item => ({
                         id: item.id,
                         name: item.name,
@@ -162,13 +171,12 @@ function BuildingMap({ isMapActive }) {
                         ...(item.height !== undefined && { height: item.height }),
                         ...(item.data && typeof item.data === 'string' && { data: item.data })
                     }));
-                const uniqueRoomsForStore = Array.from(new Map(allRoomsForStore.map(item => [item.id, item])).values());
-                setRoomsForStore(uniqueRoomsForStore);
+
+                const uniqueRoomsForStore = Array.from(new Map(allRoomsAndIconsForStore.map(item => [item.id, item])).values());
+                setRoomsForStore(uniqueRoomsForStore); // Отправляем отфильтрованный список в стор
                 if (DETAILED_DEBUG) {
-                    const securityItem = uniqueRoomsForStore.find(item => item.id === 'security');
-                    console.log('[BM Load Effect] Check security item in store:', securityItem);
-                    const r131Item = uniqueRoomsForStore.find(item => item.id === 'r131');
-                    console.log('[BM Load Effect] Check r131 item in store:', r131Item);
+                    const checkroomItem = uniqueRoomsForStore.find(item => item.id === 'th_r_checkroom');
+                    console.log('[BM Load Effect] Check checkroom item in store:', checkroomItem);
                 }
                 console.log(`%c[BM Load Effect] Загружено: ${processedLayers.length} слоев, ${uniqueRoomsForStore.length} объектов для стора.`, 'color: teal');
                 setLoading(false);
@@ -181,14 +189,16 @@ function BuildingMap({ isMapActive }) {
                 setLoading(false);
                 setLayers([]);
                 setRoomsForStore([]);
+                // setGraphData(null, null); // Убираем, т.к. граф не хранится в сторе
             });
         return () => {
             isMounted = false;
         };
-    }, [MAP_DATA_URL, setRoomsForStore]);
+    }, [MAP_DATA_URL, setRoomsForStore]); // setGraphData убран из зависимостей
 
     const handleRoomClick = useCallback((room) => {
         if (!isMapActive || !room || typeof room !== 'object') return;
+        // Передаем объект как есть, RoomInfoModal сам разберется
         if (DETAILED_LOGGING) console.log('[BM RoomClick]', room);
         setSelectedRoom(room);
     }, [isMapActive]);
@@ -200,23 +210,19 @@ function BuildingMap({ isMapActive }) {
     }, [isMapActive, handleRoomClick]);
 
     const handleIconClick = useCallback((icon) => {
-        if (!isMapActive || !icon || typeof icon !== 'object' || !icon.name) return;
+        if (!isMapActive || !icon || typeof icon !== 'object') return;
+        // Передаем объект как есть, RoomInfoModal сам разберется
         if (DETAILED_LOGGING) console.log('[BM IconClick]', icon);
-        setSelectedRoom({
-            id: icon.id,
-            name: icon.name,
-            type: "icon",
-            floorIndex: icon.floorIndex,
-            x: icon.x,
-            y: icon.y
-        });
+        setSelectedRoom({ ...icon }); // Копируем свойства иконки
     }, [isMapActive]);
+
 
     const handleLayerChange = useCallback((layerIndex) => {
         if (!isMapActive || loading || !Array.isArray(layers) || !layers[layerIndex] || curLayer === layerIndex) return;
         console.log(`[BM LayerChange] Переключение на этаж ${layerIndex}`);
-        setCurLayer(layerIndex);
+        setCurLayer(layerIndex); // Используем локальное состояние
     }, [isMapActive, loading, layers, curLayer]);
+
 
     const getPathBoundingBox = useCallback((data) => {
         if (!data || typeof data !== 'string') return null;
@@ -309,62 +315,74 @@ function BuildingMap({ isMapActive }) {
         }
     }, []);
 
-    // Center on searched room
+    // Эффект центрирования
     useEffect(() => {
         if (!selectedSearchRoom?.id) return;
         if (DETAILED_LOGGING) console.log('%c[BM Center Effect] Запуск центрирования на:', 'color: darkcyan; font-weight: bold;', selectedSearchRoom.id);
 
         const targetLayer = selectedSearchRoom.floorIndex;
+
+        // Используем локальное состояние curLayer
         if (targetLayer !== undefined && targetLayer !== curLayer && layers[targetLayer]) {
             if (DETAILED_LOGGING) console.log(`[BM Center Effect] Переключение на этаж ${targetLayer} для центрирования`);
-            setCurLayer(targetLayer);
+            setCurLayer(targetLayer); // Меняем локальный этаж
         }
 
-        let centerX, centerY;
-        try {
-            if (selectedSearchRoom.data && typeof selectedSearchRoom.data === 'string') {
-                const bbox = getPathBoundingBox(selectedSearchRoom.data);
-                if (bbox) {
-                    centerX = bbox.minX + (bbox.maxX - bbox.minX) / 2;
-                    centerY = bbox.minY + (bbox.maxY - bbox.minY) / 2;
+        requestAnimationFrame(() => {
+            let centerX, centerY;
+            try {
+                if (selectedSearchRoom.data && typeof selectedSearchRoom.data === 'string') {
+                    const bbox = getPathBoundingBox(selectedSearchRoom.data);
+                    if (bbox) {
+                        centerX = bbox.minX + (bbox.maxX - bbox.minX) / 2;
+                        centerY = bbox.minY + (bbox.maxY - bbox.minY) / 2;
+                    } else {
+                        console.warn("Не удалось рассчитать ограничивающий прямоугольник для пути искомой комнаты:", selectedSearchRoom.id);
+                        setSelectedSearchRoomAction(null);
+                        return;
+                    }
+                } else if (selectedSearchRoom.x !== undefined && selectedSearchRoom.y !== undefined) {
+                    centerX = selectedSearchRoom.x + (selectedSearchRoom.width || 0) / 2;
+                    centerY = selectedSearchRoom.y + (selectedSearchRoom.height || 0) / 2;
                 } else {
-                    console.warn("Could not calculate bounding box for searched room path:", selectedSearchRoom.id);
+                    console.warn("У искомой комнаты нет валидных координат или данных пути:", selectedSearchRoom.id);
+                    setSelectedSearchRoomAction(null);
                     return;
                 }
-            } else if (selectedSearchRoom.x !== undefined && selectedSearchRoom.y !== undefined) {
-                centerX = selectedSearchRoom.x + (selectedSearchRoom.width || 0) / 2;
-                centerY = selectedSearchRoom.y + (selectedSearchRoom.height || 0) / 2;
-            } else {
-                console.warn("Searched room has no valid coordinates or path data:", selectedSearchRoom.id);
+            } catch (centerError) {
+                console.error('[BM Center Effect] Ошибка расчета центра:', centerError);
+                setSelectedSearchRoomAction(null);
                 return;
             }
-        } catch (centerError) {
-            console.error('[BM Center Effect] Ошибка расчета центра:', centerError);
-        }
 
-        if (centerX !== undefined && centerY !== undefined && !isNaN(centerX) && !isNaN(centerY)) {
-            const scale = 2.0;
-            const screenCenterX = window.innerWidth / 2;
-            const screenCenterY = window.innerHeight / 2;
-            const newX = screenCenterX - centerX * scale;
-            const newY = screenCenterY - centerY * scale;
-            if (DETAILED_LOGGING) console.log(`[BM Center Effect] Установка позиции: scale=${scale.toFixed(1)}, x=${newX.toFixed(1)}, y=${newY.toFixed(1)}`);
-            setStageScale(scale);
-            setStageX(newX);
-            setStageY(newY);
-        } else {
-            console.warn('[BM Center Effect] Не удалось рассчитать центр для', selectedSearchRoom.id);
-        }
+            if (centerX !== undefined && centerY !== undefined && !isNaN(centerX) && !isNaN(centerY)) {
+                const scale = stageRef.current?.scaleX() ?? (isMobileDevice() ? 1.5 : 2.0);
+                const targetScale = Math.min(Math.max(scale, 1.0), 3.0);
+                const screenCenterX = window.innerWidth / 2;
+                const screenCenterY = window.innerHeight / 2;
+                const newX = screenCenterX - centerX * targetScale;
+                const newY = screenCenterY - centerY * targetScale;
+                if (DETAILED_LOGGING) console.log(`[BM Center Effect] Установка позиции: scale=${targetScale.toFixed(1)}, x=${newX.toFixed(1)}, y=${newY.toFixed(1)}`);
+                setStageScale(targetScale);
+                setStageX(newX);
+                setStageY(newY);
+            } else {
+                console.warn('[BM Center Effect] Не удалось рассчитать центр для', selectedSearchRoom.id);
+            }
 
-        if (DETAILED_LOGGING) console.log(`%c[BM Center Effect] Сброс selectedSearchRoom после центрирования`, 'color: darkcyan;');
-        setSelectedSearchRoomAction(null);
-    }, [selectedSearchRoom, layers, getPathBoundingBox, setSelectedSearchRoomAction]);
+            if (DETAILED_LOGGING) console.log(`%c[BM Center Effect] Сброс selectedSearchRoom после центрирования`, 'color: darkcyan;');
+            setSelectedSearchRoomAction(null);
+        });
+
+    }, [selectedSearchRoom, layers, getPathBoundingBox, setSelectedSearchRoomAction, curLayer, isMobileDevice]); // Используем curLayer
+
 
     const currentLayerData = useMemo(() => (
-        (Array.isArray(layers) && layers[curLayer])
+        (Array.isArray(layers) && layers[curLayer]) // Используем локальный curLayer
             ? layers[curLayer]
             : { walls: [], roads: [], rooms: [], vectors: [] }
-    ), [layers, curLayer]);
+    ), [layers, curLayer]); // Используем локальный curLayer
+
 
     const renderedWalls = useMemo(() => {
         const walls = currentLayerData.walls || [];
@@ -387,6 +405,7 @@ function BuildingMap({ isMapActive }) {
         }).filter(Boolean);
     }, [currentLayerData.walls, curLayer]);
 
+
     const renderedRoads = useMemo(() => {
         const roads = currentLayerData.roads || [];
         return roads.map((road, index) => {
@@ -404,12 +423,13 @@ function BuildingMap({ isMapActive }) {
         }).filter(Boolean);
     }, [currentLayerData.roads, curLayer]);
 
+
     const renderedIcons = useMemo(() => {
         const vectors = currentLayerData.vectors || [];
         if (!Array.isArray(vectors)) return [];
         return vectors.map((vector) => {
             if (!vector || !vector.id) return null;
-            const isInteractive = !!vector.name;
+            const isInteractive = !!(vector.name || vector.description);
             if (vector.data && typeof vector.data === 'string') {
                 return (
                     <Path
@@ -433,13 +453,15 @@ function BuildingMap({ isMapActive }) {
         }).filter(Boolean);
     }, [currentLayerData.vectors, curLayer, handleIconClick]);
 
+
     const renderedRooms = useMemo(() => (
         (currentLayerData.rooms?.map(room => {
             if (!room || !room.id) return null;
 
             const isSelected = selectedRoom?.id === room.id;
-            const isStartSelected = fromRoom?.id === room.id;
-            const isEndSelected = toRoom?.id === room.id;
+            // Используем curLayer для проверки этажа
+            const isStartSelected = fromRoom?.id === room.id && fromRoom?.floorIndex === curLayer;
+            const isEndSelected = toRoom?.id === room.id && toRoom?.floorIndex === curLayer;
 
             let baseColor = 'rgba(200, 200, 200, 0.3)';
             let strokeColor = "grey";
@@ -476,15 +498,18 @@ function BuildingMap({ isMapActive }) {
                 id: room.id,
                 stroke: strokeColor,
                 strokeWidth: strokeWidth,
-                onClick: () => handleRoomClick(room),
-                onTap: (e) => handleTouchRoom(e, room),
+                onClick: (room.name || room.description) ? () => handleRoomClick(room) : undefined,
+                onTap: (room.name || room.description) ? (e) => handleTouchRoom(e, room) : undefined,
+                listening: !!(room.name || room.description),
                 perfectDrawEnabled: false,
                 shadowEnabled: false,
                 fill: baseColor,
             };
 
+            const displayText = room.name;
+
             const textProps = {
-                text: room.name || '',
+                text: displayText || '',
                 fontSize: room.fontSize || 13,
                 fill: '#333',
                 listening: false,
@@ -503,10 +528,10 @@ function BuildingMap({ isMapActive }) {
                 if (!bbox) return null;
                 const textWidth = bbox.maxX - bbox.minX - 4;
                 const textHeight = bbox.maxY - bbox.minY - 4;
-                const showText = textWidth > 10 && textHeight > 5;
+                const showText = displayText && textWidth > 10 && textHeight > 5;
 
                 return (
-                    <Group key={room.id}>
+                    <Group key={`${room.id}-${curLayer}`}>
                         <Path
                             {...commonProps}
                             data={room.data}
@@ -527,10 +552,10 @@ function BuildingMap({ isMapActive }) {
                     </Group>
                 );
             } else if (room.x !== undefined && room.y !== undefined && room.width && room.height) {
-                const showText = room.width > 15 && room.height > 8;
+                const showText = displayText && room.width > 15 && room.height > 8;
 
                 return (
-                    <Group key={room.id}>
+                    <Group key={`${room.id}-${curLayer}`}>
                         <Rect
                             {...commonProps}
                             x={room.x}
@@ -555,34 +580,14 @@ function BuildingMap({ isMapActive }) {
         }) || []).filter(Boolean)
     ), [currentLayerData.rooms, curLayer, fromRoom, toRoom, selectedRoom, handleRoomClick, handleTouchRoom, getPathBoundingBox]);
 
+
     if (loading) {
-        return (
-            <div style={{
-                position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                fontSize: '20px',
-                color: '#555'
-            }}>
-                Загрузка карты...
-            </div>
-        );
+        return ( <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '20px', color: '#555' }}> Загрузка карты... </div> );
     }
-    if (!layers || layers.length === 0) {
-        return (
-            <div style={{
-                position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                fontSize: '20px',
-                color: 'red'
-            }}>
-                Ошибка загрузки данных карты.
-            </div>
-        );
+    if (loadError || !layers || layers.length === 0) {
+        return ( <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '20px', color: 'red' }}> {loadError || 'Ошибка загрузки данных карты.'} </div> );
     }
+
 
     return (
         <>
