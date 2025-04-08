@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import React, { useEffect } from 'react';
 import './App.css';
 import BuildingMap from "./components/BuildingMap.jsx";
 import BottomMenu from "./components/BottomMenu.jsx";
@@ -7,7 +7,25 @@ import Header from './components/Header.jsx';
 import RouteInstructionsModal from './components/RouteInstructionsModal.jsx';
 
 function App() {
-    const {activeMenu, setActiveMenu} = useStore();
+    const { activeMenu, setPendingFromRoomId } = useStore();
+
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        // Try to get the value of the 'fromRoomId' parameter
+        const fromRoomId = urlParams.get('fromRoomId');
+
+        // Check if the 'fromRoomId' parameter exists in the URL
+        if (fromRoomId) {
+            console.log(`[App] Found fromRoomId in URL: ${fromRoomId}`);
+
+            setPendingFromRoomId(fromRoomId);
+
+
+            const newUrl = window.location.pathname; // Get the current path without the query string
+            window.history.replaceState({}, document.title, newUrl); // Update the URL without reloading
+            console.log('[App] Cleaned URL parameter.');
+        }
+    }, [setPendingFromRoomId]);
 
     return (
         <>

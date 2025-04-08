@@ -16,21 +16,49 @@ const useStore = create((set, get) => ({
     selectedSearchRoom: null,
     buildRouteTrigger: null,
 
+    isBuildingModalOpen: false,
+    selectedBuilding: availableBuildings[0],
+
+    // Route Instructions State
     isRouteInstructionsVisible: false,
     routeInstructions: [],
     currentInstructionIndex: 0,
 
+    // Map & Pathfinding State (managed mostly by RouteMap now)
     graphData: { graph: null, nodeCoords: null },
     calculatedPath: null,
     currentMapFloor: initialFloor,
 
+    // State for QR Code Handling
+    pendingFromRoomId: null,
+
+    // --- Actions ---
 
     setFromRoom: (room) => set({ fromRoom: room }),
     setToRoom: (room) => set({ toRoom: room }),
 
-    setRooms: (rooms) => set({ rooms }),
+    setRooms: (rooms) => set((state) => {
+        // This action now also processes the pending QR code room ID
+        const newState = { rooms };
+        if (state.pendingFromRoomId && rooms?.length > 0) {
+            const foundRoom = rooms.find(r => r.id === state.pendingFromRoomId);
+            if (foundRoom) {
+                console.log(`[Store] Processing pendingFromRoomId: ${state.pendingFromRoomId}. Found:`, foundRoom.name);
+                newState.fromRoom = foundRoom; // Set the 'from' room
+                newState.activeMenu = 'route'; // Open the route menu
+                newState.pendingFromRoomId = null; // Clear the pending ID
+            } else {
+                console.warn(`[Store] Pending room ID ${state.pendingFromRoomId} not found in loaded rooms.`);
+                newState.pendingFromRoomId = null; // Clear even if not found to avoid retrying
+            }
+        }
+        return newState;
+    }),
+
     setActiveMenu: (menu) => set({ activeMenu: menu }),
     setSelectedSearchRoom: (room) => set({ selectedSearchRoom: room }),
+
+    // Building Selection Actions
     setIsBuildingModalOpen: (isOpen) => set({ isBuildingModalOpen: isOpen }),
     setSelectedBuilding: (building) => set({
         selectedBuilding: building,
@@ -44,26 +72,29 @@ const useStore = create((set, get) => ({
         graphData: { graph: null, nodeCoords: null },
         currentMapFloor: initialFloor,
     }),
+
+    // Route Building Action
     triggerRouteBuild: () => set((state) => {
-        // Перед построением маршрута, очистим старые инструкции и путь, если они есть
-        const newState = {
+        // Only trigger if both start and end points are selected
+        if (!state.fromRoom || !state.toRoom) {
+            console.warn("[Store] Cannot trigger route build: Missing 'from' or 'to' room.");
+            return { buildRouteTrigger: null };
+        }
+        return {
             buildRouteTrigger: Date.now(),
             isRouteInstructionsVisible: false,
             routeInstructions: [],
             currentInstructionIndex: 0,
             calculatedPath: null
         };
-        // Если точки не заданы, не строим
-        if (!state.fromRoom || !state.toRoom) {
-            newState.buildRouteTrigger = null; // Отменяем триггер
-        }
-        return newState;
     }),
 
+    // Path & Map State Actions (Primarily used by RouteMap)
     setGraphData: (graph, nodeCoords) => set({ graphData: { graph, nodeCoords } }),
     setCalculatedPath: (path) => set({ calculatedPath: path }),
     setCurrentMapFloor: (floorIndex) => set({ currentMapFloor: floorIndex }),
 
+    // Route Instructions Actions
     setIsRouteInstructionsVisible: (isVisible) => set({ isRouteInstructionsVisible: isVisible }),
     setRouteInstructions: (instructions) => set({
         routeInstructions: instructions,
@@ -72,110 +103,59 @@ const useStore = create((set, get) => ({
     }),
     setCurrentInstructionIndex: (index) => set({ currentInstructionIndex: index }),
 
-    goToNextInstruction: () => {
-        const {
-            currentInstructionIndex,
-            routeInstructions,
-            setCurrentMapFloor,
-            setSelectedSearchRoom,
-            graphData,
-        } = get();
-
-        const nextIndex = currentInstructionIndex + 1;
-
-        if (nextIndex < routeInstructions.length) {
-            const nextInstruction = routeInstructions[nextIndex];
-
-            if (nextInstruction.type === 'transition' && nextInstruction.targetFloor !== undefined) {
-                setCurrentMapFloor(nextInstruction.targetFloor);
-                const transitionStartNodeId = nextInstruction.nodeId;
-                if (transitionStartNodeId && graphData.nodeCoords?.has(transitionStartNodeId)) {
-                    const nodeData = graphData.nodeCoords.get(transitionStartNodeId);
-                    if (nodeData) {
-                        const centerTarget = {
-                            id: `focus_${transitionStartNodeId}_${Date.now()}`,
-                            floorIndex: nodeData.floorIndex,
-                            x: nodeData.x,
-                            y: nodeData.y,
-                        };
-                        setSelectedSearchRoom(centerTarget);
-                    }
-                }
-
-            }
-            set({ currentInstructionIndex: nextIndex });
+    // Navigation through instructions
+    goToNextInstruction: () => set((state) => {
+        const nextIndex = state.currentInstructionIndex + 1;
+        if (nextIndex < state.routeInstructions.length) {
+            return { currentInstructionIndex: nextIndex };
+            // Consider adding logic here to call setCurrentMapFloor or setSelectedSearchRoom
+            // based on the `routeInstructions[nextIndex]` content if needed.
         }
-    },
-
-    goToPreviousInstruction: () => {
-        const {
-            currentInstructionIndex,
-            routeInstructions,
-            setCurrentMapFloor,
-            setSelectedSearchRoom,
-            graphData
-        } = get();
-
-        const prevIndex = currentInstructionIndex - 1;
-
+        return {}; // No change if already at the end
+    }),
+    goToPreviousInstruction: () => set((state) => {
+        const prevIndex = state.currentInstructionIndex - 1;
         if (prevIndex >= 0) {
-            const currentInstruction = routeInstructions[currentInstructionIndex];
-            const prevInstruction = routeInstructions[prevIndex];
-
-            if (currentInstruction.type === 'transition' && prevInstruction.type === 'walk') {
-                if (prevInstruction.floor !== undefined) {
-                    setCurrentMapFloor(prevInstruction.floor);
-                    const walkEndNodeId = currentInstruction.originNodeId;
-                    if (walkEndNodeId && graphData.nodeCoords?.has(walkEndNodeId)) {
-                        const nodeData = graphData.nodeCoords.get(walkEndNodeId);
-                        if (nodeData) {
-                            const centerTarget = {
-                                id: `focus_${walkEndNodeId}_${Date.now()}`,
-                                floorIndex: nodeData.floorIndex,
-                                x: nodeData.x,
-                                y: nodeData.y,
-                            };
-                            setSelectedSearchRoom(centerTarget);
-                        }
-                    }
-                }
-            }
-            else if (currentInstruction.type === 'walk' && prevInstruction.type === 'transition') {
-                if (prevInstruction.originFloor !== undefined) {
-                    setCurrentMapFloor(prevInstruction.originFloor);
-                    const transitionStartNodeId = prevInstruction.originNodeId;
-                    if (transitionStartNodeId && graphData.nodeCoords?.has(transitionStartNodeId)) {
-                        const nodeData = graphData.nodeCoords.get(transitionStartNodeId);
-                        if (nodeData) {
-                            const centerTarget = {
-                                id: `focus_${transitionStartNodeId}_${Date.now()}`,
-                                floorIndex: nodeData.floorIndex,
-                                x: nodeData.x,
-                                y: nodeData.y,
-                            };
-                            setSelectedSearchRoom(centerTarget);
-                        }
-                    }
-                }
-            }
-
-            set({ currentInstructionIndex: prevIndex });
+            return { currentInstructionIndex: prevIndex };
         }
-    },
+        return {};
+    }),
 
-
+    // Action to clear the current route and related state
     clearRouteAndInstructions: () => set({
-        buildRouteTrigger: null,
+        buildRouteTrigger: null, // Stop RouteMap from drawing the path
         isRouteInstructionsVisible: false,
         routeInstructions: [],
         currentInstructionIndex: 0,
         calculatedPath: null,
-        fromRoom: null, // Сбрасываем точки для сброса подсветки
+        fromRoom: null, // Clear selection highlights/state
         toRoom: null,
     }),
 
-    isBuildingModalOpen: false,
-    selectedBuilding: availableBuildings[0],
+    // Action for QR Code Handling (called by App.jsx on load)
+    setPendingFromRoomId: (roomId) => {
+        // This action checks if rooms are already loaded.
+        // If yes, it processes the ID immediately.
+        // If no, it stores the ID in `pendingFromRoomId`.
+        // The actual setting of `fromRoom` and `activeMenu` will happen
+        // inside the `setRooms` action when the data becomes available.
+        const currentRooms = get().rooms;
+        if (currentRooms && currentRooms.length > 0) {
+            const foundRoom = currentRooms.find(r => r.id === roomId);
+            if (foundRoom) {
+                console.log(`[Store] Setting 'from' immediately for ID: ${roomId}. Found:`, foundRoom.name);
+                set({ fromRoom: foundRoom, activeMenu: 'route', pendingFromRoomId: null });
+            } else {
+                console.warn(`[Store] Room ID ${roomId} from URL not found even after load.`);
+                set({ pendingFromRoomId: null }); // Clear anyway
+            }
+        } else {
+            // Rooms not loaded yet, store the ID for later processing in setRooms
+            console.log(`[Store] Storing pendingFromRoomId: ${roomId}`);
+            set({ pendingFromRoomId: roomId });
+        }
+    },
+
 }));
 
 export default useStore;

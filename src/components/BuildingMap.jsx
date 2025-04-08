@@ -6,7 +6,7 @@ import '../BuildingMap.css';
 import useStore from './store.jsx';
 import RouteMap from "./RouteMap.jsx"; // RouteMap теперь читает этаж из стора
 
-const MAP_DATA_URL = 'src/components/ALL_MAP_YUN_V0.2.json';
+const MAP_DATA_URL = 'https://staticstorm.ru/map/map_data2';
 const DETAILED_LOGGING = false;
 const DETAILED_DEBUG = false;
 
