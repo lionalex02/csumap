@@ -1,4 +1,3 @@
-// src/components/RouteMap.jsx
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Shape, Text } from 'react-konva';
 import useStore from './store.jsx';

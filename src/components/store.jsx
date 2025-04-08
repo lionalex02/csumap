@@ -1,4 +1,3 @@
-// src/components/store.jsx
 import { create } from 'zustand';
 
 export const availableBuildings = [

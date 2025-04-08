@@ -10,10 +10,7 @@ function RoomInfoModal({room, onClose}) {
         if (room) {
             setIsVisible(true);
         } else {
-            const timer = setTimeout(() => {
-                setIsVisible(false);
-            }, 300);
-            return () => clearTimeout(timer);
+            setIsVisible(false);
         }
     }, [room]);
 
