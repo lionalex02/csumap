@@ -1,4 +1,4 @@
-// src/components/map/pathfinding/graph.js
+// src/components/graph.js
 
 function distance(x1, y1, x2, y2) {
     if (typeof x1 !== 'number' || typeof y1 !== 'number' || typeof x2 !== 'number' || typeof y2 !== 'number' ||
