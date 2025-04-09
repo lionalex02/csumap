@@ -382,14 +382,17 @@
           "y": 1476.5
         },
         {
-          "data": "M1135.5 276H1021.5V325H1135.5V276Z",
+          "x":1022,
+          "y":276,
+          "height": 49,
+          "width": 114,
           "description": "Гардероб",
           "draggable": true,
           "id": "a_checkroom",
           "name": null,
           "stroke": "black",
           "strokeWidth": 1,
-          "type": "vectorized_room",
+          "type": "room",
           "workingtime": ""
         },
         {
@@ -2281,7 +2284,7 @@
         {
           "data": "M1099.63 330.989H1107V334.291H1102.79V338.694H1098.58V343.097H1094.37V347.5H1087V344.198H1091.21V339.795H1095.42V335.392H1099.63V330.989ZM1088.93 333.565L1094.73 327.5L1096.65 329.514L1090.85 335.579L1092.79 337.594H1087V331.54L1088.93 333.565Z",
           "draggable": true,
-          "id": "a_ladder1_0",
+          "id": "a_checkroom_door",
           "stroke": "black",
           "strokeWidth": 1,
           "type": "icon"
