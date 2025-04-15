@@ -34,8 +34,8 @@ function RouteInstructionsModal() {
                     disabled={isFirstStep}
                     aria-label="Предыдущий шаг"
                 >
-                    <svg width="10" height="16" viewBox="0 0 10 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M8.5 1L1.5 8L8.5 15" stroke="#343434" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <svg width="13" height="25" xmlns="http://www.w3.org/2000/svg" fill="none">
+                        <path stroke="#343434" id="svg_1" strokeLinejoin="round" strokeLinecap="round" strokeWidth="2" d="m11.81249,0.9375l-10.43749,11.40624l10.43749,11.40624"/>
                     </svg>
                 </button>
 
@@ -55,9 +55,8 @@ function RouteInstructionsModal() {
                     disabled={isLastStep}
                     aria-label="Следующий шаг"
                 >
-                    <svg width="10" height="16" viewBox="0 0 10 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M1.5 1L8.5 8L1.5 15" stroke="#343434" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                    <svg width="13" height="25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path transform="rotate(-180 6.5 12.5)" stroke="#343434" id="svg_1" strokeLinejoin="round" strokeLinecap="round" strokeWidth="2" d="m11.71875,1.09376l-10.43749,11.40624l10.43749,11.40624"/>                    </svg>
                 </button>
 
                 <button className="route-instructions-close-button" onClick={handleClose} aria-label="Закрыть маршрут">

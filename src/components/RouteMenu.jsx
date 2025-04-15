@@ -31,7 +31,7 @@ function RouteMenu() {
                     if (room.description && room.name !== room.description) {
                         label += ` (${room.description})`;
                     }
-                } else if (room.description) {
+                } else if (room.description && room.description!=="Техническое помещение") {
                     label = room.description;
                 } else {
                     label = `ID: ${room.id}`;

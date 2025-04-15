@@ -19,7 +19,7 @@ function Header() {
                     if (room.description && room.name !== room.description) {
                         label += ` (${room.description})`;
                     }
-                } else if (room.description) {
+                } else if (room.description && room.description!=="Техническое помещение") {
                     label = room.description; // Имя null, используем описание
                 } else {
                     label = `ID: ${room.id}`; // Крайний случай

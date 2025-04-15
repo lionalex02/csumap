@@ -1,7 +1,7 @@
 /* src/RouteInstructionsModal.css */
 .route-instructions-overlay {
     position: fixed;
-    bottom: 120px;
+    bottom: 40px;
     left: 50%;
     transform: translateX(-50%);
     width: calc(100% - 40px);
@@ -10,6 +10,7 @@
     pointer-events: none;
     display: flex;
     justify-content: center;
+    height: 100px;
 }
 
 .route-instructions-content {
@@ -88,12 +89,12 @@
 
 .route-instructions-close-button {
     position: absolute;
-    top: 5px;       /* Перемещаем немного выше */
-    right: 5px;     /* Перемещаем немного левее */
+    top: 5px;
+    right: 5px;
     background: transparent;
     border: none;
     cursor: pointer;
-    padding: 5px; /* Уменьшаем padding */
+    padding: 5px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -136,11 +137,11 @@
 
 @media (max-width: 480px) {
     .route-instructions-overlay {
-        bottom: 90px;
+        bottom: 10px;
         width: calc(100% - 20px);
     }
     .route-instructions-content {
-        padding: 10px 15px;
+        padding: 20px 15px 15px 15px;
         gap: 5px;
     }
     .instruction-text-container p {
@@ -152,11 +153,11 @@
     }
     .route-instructions-close-button {
         padding: 4px;
-        top: 4px;
-        right: 4px;
+        top: 3px;
+        right: 3px;
     }
     .route-instructions-close-button svg {
-        width: 10px;
-        height: 10px;
+        width: 15px;
+        height: 15px;
     }
 }
