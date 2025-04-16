@@ -3,7 +3,7 @@
     width: 90%;
     max-width: 600px;
     height: 60px;
-    top: 25px;
+    top: 15px;
     left: 50%;
     transform: translateX(-50%); /* Центрирование по горизонтали */
     z-index: 1000;
@@ -109,6 +109,7 @@
 
 @media (max-width: 480px) {
     .header {
+        top: 0px;
         padding: 10px;
     }
 
@@ -123,5 +124,11 @@
 
     .header-select__control {
         max-width: 400px;
+    }
+}
+
+@media all and (display-mode: standalone) {
+    .header {
+        top: 0px;
     }
 }

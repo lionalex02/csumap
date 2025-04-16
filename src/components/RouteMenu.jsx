@@ -21,25 +21,31 @@ function RouteMenu() {
 
     // Генерация опций для селектов
     const roomOptions = useMemo(() => {
-        console.log('[RouteMenu] Recalculating roomOptions...');
         return rooms
-            .filter(room => room && room.id && (room.name || room.description))
+            .filter(room => {
+                // Условия фильтрации
+                const isValidRoom = room && room.id && (room.name || room.description);
+                const hasTexInId = room.id.toLowerCase().includes('tex');
+                const isTechnical = room.description?.toLowerCase().includes('техническое помещение');
+
+                return isValidRoom && !hasTexInId && !isTechnical;
+            })
             .map((room) => {
+                // Оригинальная логика формирования label
                 let label = '';
                 if (room.name) {
                     label = room.name;
                     if (room.description && room.name !== room.description) {
                         label += ` (${room.description})`;
                     }
-                } else if (room.description && room.description!=="Техническое помещение") {
+                } else if (room.description) {
                     label = room.description;
                 } else {
                     label = `ID: ${room.id}`;
                 }
-                // Важно: сохраняем весь объект комнаты в data для filterOption
                 return { value: room.id, label: label, data: room };
             })
-            .sort((a,b) => a.label.localeCompare(b.label));
+            .sort((a, b) => a.label.localeCompare(b.label));
     }, [rooms]);
 
     // Синхронизация ЛОКАЛЬНОГО состояния с ГЛОБАЛЬНЫМ (Store -> Local)

@@ -10,23 +10,30 @@ function Header() {
 
     const roomOptions = useMemo(() => {
         return rooms
-            // Фильтр остается из BuildingMap (только элементы с ID И (name ИЛИ description))
+            .filter(room => {
+                // Фильтрация элементов
+                const hasOnlyId = !room.name && !room.description;
+                const hasTexInId = room.id.toLowerCase().includes('tex');
+                const isTechnical = room.description?.toLowerCase().includes('техническое помещение');
+
+                return !hasOnlyId && !hasTexInId && !isTechnical;
+            })
             .map((room) => {
+                // Оригинальная логика формирования label
                 let label = '';
                 if (room.name) {
                     label = room.name;
-                    // Добавляем описание в скобках, только если оно есть и НЕ совпадает с именем
                     if (room.description && room.name !== room.description) {
                         label += ` (${room.description})`;
                     }
-                } else if (room.description && room.description!=="Техническое помещение") {
-                    label = room.description; // Имя null, используем описание
+                } else if (room.description) {
+                    label = room.description;
                 } else {
-                    label = `ID: ${room.id}`; // Крайний случай
+                    label = `ID: ${room.id}`;
                 }
-                return {value: room.id, label: label};
+                return { value: room.id, label: label };
             })
-            .sort((a, b) => a.label.localeCompare(b.label)); // Сортировка для удобства
+            .sort((a, b) => a.label.localeCompare(b.label));
     }, [rooms]);
 
     const handleSearchChange = (selectedOption) => {

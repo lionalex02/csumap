@@ -84,20 +84,7 @@ function parseSvgPathRoad(roadData, roadId, floorIndex) {
 // Этаж 2 (индекс 1) <-> Этаж 3 (индекс 2)
 // Этаж 3 (индекс 2) <-> Этаж 4 (индекс 3)
 function areFloorsAdjacent(floorIndex1, floorIndex2) {
-    const f1 = floorIndex1;
-    const f2 = floorIndex2;
-    if (f1 === 4 && f2 === 0) return true;
-    if (f1 === 0 && f2 === 4) return true;
-    if (f1 === 0 && f2 === 1) return true;
-    if (f1 === 1 && f2 === 0) return true;
-    if (f1 === 1 && f2 === 2) return true;
-    if (f1 === 2 && f2 === 1) return true;
-    if (f1 === 2 && f2 === 3) return true;
-    if (f1 === 3 && f2 === 2) return true;
-    // Добавь другие пары, если нужно (например, 3 <-> 4, если этаж 4 - это индекс 3)
-    if (f1 === 3 && f2 === 4) return true; // Добавлено на всякий случай
-    if (f1 === 4 && f2 === 3) return true; // Добавлено на всякий случай
-    return false;
+    return Math.abs(floorIndex1 - floorIndex2) === 1;
 }
 // --------------------------------------------------------------------
 

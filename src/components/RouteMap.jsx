@@ -7,16 +7,12 @@ import { findShortestPath } from './dijkstra.js';
 const DETAILED_DEBUG = false;
 
 function getFloorDisplayName(floorIndex) {
-    if (floorIndex === 4) return '0';
-    if (floorIndex >= 0 && floorIndex <= 3) return String(floorIndex + 1);
-    return `Неизв. (${floorIndex})`;
+    return String(floorIndex); // Просто возвращаем индекс как номер этажа
 }
 
 function getTransitionVerb(fromIndex, toIndex) {
-    if (fromIndex === 4 && toIndex === 0) return "Поднимитесь"; // 0 -> 1
-    if (fromIndex === 0 && toIndex === 4) return "Спуститесь"; // 1 -> 0
     if (fromIndex < toIndex) return "Поднимитесь";
-    if (fromIndex > toIndex) return "Спуститесь";
+    if (fromIndex > toIndex  || toIndex===4) return "Спуститесь";
     return "";
 }
 

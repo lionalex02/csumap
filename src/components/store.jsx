@@ -6,7 +6,7 @@ export const availableBuildings = [
     { id: 'building3', name: 'Корпус 3' },
 ];
 
-const initialFloor = 0;
+const initialFloor = 1;
 
 const useStore = create((set, get) => ({
     fromRoom: null,

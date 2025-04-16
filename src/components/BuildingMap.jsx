@@ -44,7 +44,7 @@ function BuildingMap({ isMapActive }) {
     useEffect(() => {
         console.log("Selected building changed in store:", selectedBuilding);
         if (selectedBuilding) {
-            const defaultFloorForBuilding = 0;
+            const defaultFloorForBuilding = 1;
             setCurLayer(defaultFloorForBuilding); // Используем локальное состояние
         }
     }, [selectedBuilding]);
@@ -592,16 +592,15 @@ function BuildingMap({ isMapActive }) {
     return (
         <>
             <div className="floor-buttons">
-                {[4, 0, 1, 2, 3].map(floorIndex => (
+                {[0, 1, 2, 3, 4].map(floorIndex => (
                     layers[floorIndex] ? (
                         <button
                             key={`fb-${floorIndex}`}
                             className={`floor-button ${curLayer === floorIndex ? 'active' : ''}`}
                             onClick={() => handleLayerChange(floorIndex)}
-                            disabled={!isMapActive || loading}
-                            aria-label={`Этаж ${floorIndex === 4 ? '0' : floorIndex + 1}`}
+                            aria-label={`Этаж ${floorIndex}`} // Просто номер этажа = индекс
                         >
-                            {floorIndex === 4 ? '0' : `${floorIndex + 1}`}
+                            {floorIndex}
                         </button>
                     ) : null
                 ))}
