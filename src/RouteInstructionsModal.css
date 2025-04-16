@@ -161,3 +161,10 @@
         height: 15px;
     }
 }
+
+@media all and (display-mode: standalone) {
+    .route-instructions-overlay {
+        bottom: 25px;
+        width: calc(100% - 20px);
+    }
+}

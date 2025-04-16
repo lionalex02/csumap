@@ -8,6 +8,12 @@ export const availableBuildings = [
 
 const initialFloor = 1;
 
+// Функция для извлечения номера этажа из инструкции
+const extractFloorNumber = (instruction) => {
+    const match = instruction.match(/на (\d+) этаж/);
+    return match ? parseInt(match[1], 10) : null;
+};
+
 const useStore = create((set, get) => ({
     fromRoom: null,
     toRoom: null,
@@ -38,7 +44,6 @@ const useStore = create((set, get) => ({
     setToRoom: (room) => set({ toRoom: room }),
 
     setRooms: (rooms) => set((state) => {
-        // This action now also processes the pending QR code room ID
         const newState = { rooms };
         if (state.pendingFromRoomId && rooms?.length > 0) {
             const foundRoom = rooms.find(r => r.id === state.pendingFromRoomId);
@@ -75,7 +80,6 @@ const useStore = create((set, get) => ({
 
     // Route Building Action
     triggerRouteBuild: () => set((state) => {
-        // Only trigger if both start and end points are selected
         if (!state.fromRoom || !state.toRoom) {
             console.warn("[Store] Cannot trigger route build: Missing 'from' or 'to' room.");
             return { buildRouteTrigger: null };
@@ -107,9 +111,16 @@ const useStore = create((set, get) => ({
     goToNextInstruction: () => set((state) => {
         const nextIndex = state.currentInstructionIndex + 1;
         if (nextIndex < state.routeInstructions.length) {
+            const nextInstruction = state.routeInstructions[nextIndex];
+            const floorNumber = extractFloorNumber(nextInstruction);
+            if (floorNumber !== null && nextInstruction.includes("по лестнице")) {
+                // Переключаем этаж
+                state.setCurrentMapFloor(floorNumber);
+                state.set
+                // Устанавливаем фиктивную "комнату" для центрирования на середине этажа
+                state.setSelectedSearchRoom({ id: `floor-${floorNumber}-center`, floorIndex: floorNumber });
+            }
             return { currentInstructionIndex: nextIndex };
-            // Consider adding logic here to call setCurrentMapFloor or setSelectedSearchRoom
-            // based on the `routeInstructions[nextIndex]` content if needed.
         }
         return {}; // No change if already at the end
     }),
@@ -134,11 +145,6 @@ const useStore = create((set, get) => ({
 
     // Action for QR Code Handling (called by App.jsx on load)
     setPendingFromRoomId: (roomId) => {
-        // This action checks if rooms are already loaded.
-        // If yes, it processes the ID immediately.
-        // If no, it stores the ID in `pendingFromRoomId`.
-        // The actual setting of `fromRoom` and `activeMenu` will happen
-        // inside the `setRooms` action when the data becomes available.
         const currentRooms = get().rooms;
         if (currentRooms && currentRooms.length > 0) {
             const foundRoom = currentRooms.find(r => r.id === roomId);
@@ -150,12 +156,10 @@ const useStore = create((set, get) => ({
                 set({ pendingFromRoomId: null }); // Clear anyway
             }
         } else {
-            // Rooms not loaded yet, store the ID for later processing in setRooms
             console.log(`[Store] Storing pendingFromRoomId: ${roomId}`);
             set({ pendingFromRoomId: roomId });
         }
     },
-
 }));
 
 export default useStore;

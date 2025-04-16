@@ -315,49 +315,78 @@ function BuildingMap({ isMapActive }) {
         }
     }, []);
 
+    const getFloorCenter = (floorIndex) => {
+        const layer = layers[floorIndex];
+        if (!layer) return null;
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        layer.walls.forEach(wall => {
+            const bbox = getPathBoundingBox(wall.data);
+            if (bbox) {
+                minX = Math.min(minX, bbox.minX);
+                minY = Math.min(minY, bbox.minY);
+                maxX = Math.max(maxX, bbox.maxX);
+                maxY = Math.max(maxY, bbox.maxY);
+            }
+        });
+
+        if (minX === Infinity || minY === Infinity || maxX === -Infinity || maxY === -Infinity) {
+            return null;
+        }
+
+        return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+    };
+
+
     // Эффект центрирования
     useEffect(() => {
         if (!selectedSearchRoom?.id) return;
         if (DETAILED_LOGGING) console.log('%c[BM Center Effect] Запуск центрирования на:', 'color: darkcyan; font-weight: bold;', selectedSearchRoom.id);
 
-        const targetLayer = selectedSearchRoom.floorIndex;
+        let targetLayer;
+        let centerX, centerY;
 
-        // Используем локальное состояние curLayer
-        if (targetLayer !== undefined && targetLayer !== curLayer && layers[targetLayer]) {
-            if (DETAILED_LOGGING) console.log(`[BM Center Effect] Переключение на этаж ${targetLayer} для центрирования`);
-            setCurLayer(targetLayer); // Меняем локальный этаж
-        }
-
-        requestAnimationFrame(() => {
-            let centerX, centerY;
-            try {
-                if (selectedSearchRoom.data && typeof selectedSearchRoom.data === 'string') {
-                    const bbox = getPathBoundingBox(selectedSearchRoom.data);
-                    if (bbox) {
-                        centerX = bbox.minX + (bbox.maxX - bbox.minX) / 2;
-                        centerY = bbox.minY + (bbox.maxY - bbox.minY) / 2;
-                    } else {
-                        console.warn("Не удалось рассчитать ограничивающий прямоугольник для пути искомой комнаты:", selectedSearchRoom.id);
-                        setSelectedSearchRoomAction(null);
-                        return;
-                    }
-                } else if (selectedSearchRoom.x !== undefined && selectedSearchRoom.y !== undefined) {
-                    centerX = selectedSearchRoom.x + (selectedSearchRoom.width || 0) / 2;
-                    centerY = selectedSearchRoom.y + (selectedSearchRoom.height || 0) / 2;
-                } else {
-                    console.warn("У искомой комнаты нет валидных координат или данных пути:", selectedSearchRoom.id);
-                    setSelectedSearchRoomAction(null);
-                    return;
-                }
-            } catch (centerError) {
-                console.error('[BM Center Effect] Ошибка расчета центра:', centerError);
+        if (selectedSearchRoom.id.startsWith('floor-') && selectedSearchRoom.id.endsWith('-center')) {
+            targetLayer = selectedSearchRoom.floorIndex;
+            const center = getFloorCenter(targetLayer);
+            if (center) {
+                centerX = center.x;
+                centerY = center.y;
+            } else {
+                console.warn(`Не удалось вычислить центр для этажа ${targetLayer}`);
                 setSelectedSearchRoomAction(null);
                 return;
             }
+        } else {
+            targetLayer = selectedSearchRoom.floorIndex;
+            if (selectedSearchRoom.data && typeof selectedSearchRoom.data === 'string') {
+                const bbox = getPathBoundingBox(selectedSearchRoom.data);
+                if (bbox) {
+                    centerX = bbox.minX + (bbox.maxX - bbox.minX) / 2;
+                    centerY = bbox.minY + (bbox.maxY - bbox.minY) / 2;
+                } else {
+                    console.warn("Не удалось рассчитать ограничивающий прямоугольник для пути искомой комнаты:", selectedSearchRoom.id);
+                    setSelectedSearchRoomAction(null);
+                    return;
+                }
+            } else if (selectedSearchRoom.x !== undefined && selectedSearchRoom.y !== undefined) {
+                centerX = selectedSearchRoom.x + (selectedSearchRoom.width || 0) / 2;
+                centerY = selectedSearchRoom.y + (selectedSearchRoom.height || 0) / 2;
+            } else {
+                console.warn("У искомой комнаты нет валидных координат или данных пути:", selectedSearchRoom.id);
+                setSelectedSearchRoomAction(null);
+                return;
+            }
+        }
 
+        if (targetLayer !== undefined && targetLayer !== curLayer && layers[targetLayer]) {
+            if (DETAILED_LOGGING) console.log(`[BM Center Effect] Переключение на этаж ${targetLayer} для центрирования`);
+            setCurLayer(targetLayer);
+        }
+
+        requestAnimationFrame(() => {
             if (centerX !== undefined && centerY !== undefined && !isNaN(centerX) && !isNaN(centerY)) {
-                const scale = stageRef.current?.scaleX() ?? (isMobileDevice() ? 1.5 : 2.0);
-                const targetScale = Math.min(Math.max(scale, 1.0), 3.0);
+                const targetScale = isMobileDevice() ? 0.35 : 0.7;
                 const screenCenterX = window.innerWidth / 2;
                 const screenCenterY = window.innerHeight / 2;
                 const newX = screenCenterX - centerX * targetScale;
@@ -373,8 +402,7 @@ function BuildingMap({ isMapActive }) {
             if (DETAILED_LOGGING) console.log(`%c[BM Center Effect] Сброс selectedSearchRoom после центрирования`, 'color: darkcyan;');
             setSelectedSearchRoomAction(null);
         });
-
-    }, [selectedSearchRoom, layers, getPathBoundingBox, setSelectedSearchRoomAction, curLayer, isMobileDevice]); // Используем curLayer
+    }, [selectedSearchRoom, layers, getPathBoundingBox, setSelectedSearchRoomAction, curLayer, isMobileDevice]);
 
 
     const currentLayerData = useMemo(() => (
