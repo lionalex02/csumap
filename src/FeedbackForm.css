@@ -1,0 +1,105 @@
+.feedback-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4); /* Полупрозрачный фон */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1005; /* Выше других элементов */
+    padding: 20px;
+}
+
+.feedback-modal-content {
+    background-color: white;
+    padding: 25px 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    position: relative;
+    width: 90%;
+    max-width: 350px; /* Ограничение максимальной ширины */
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Центрирование содержимого */
+}
+
+.close-button {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(220, 38, 38, 0.1);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #DC2626;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    z-index: 1007;
+}
+.close-button:hover {
+    background: rgba(220, 38, 38, 0.2);
+}
+.close-x {
+    font-size: 24px;
+    line-height: 1;
+    font-weight: 300;
+}
+
+.feedback-modal-close-button:hover svg path {
+    fill: #d6322d;
+}
+
+.feedback-modal-content h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #343434;
+    font-size: 20px;
+    text-align: center;
+}
+
+.feedback-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+
+.feedback-label {
+    font-size: 14px;
+    color: #333;
+}
+
+.feedback-input,
+.feedback-textarea {
+    padding: 12px;
+    border: 2px solid #d6322d;
+    border-radius: 20px;
+    font-size: 16px;
+    transition: border-color 0.3s ease;
+}
+
+.feedback-textarea {
+    resize: none;
+    height: 100px;
+}
+
+.feedback-submit {
+    background-color: #d6322d;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 50px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.feedback-submit:hover {
+    background-color: #b52a25;
+}

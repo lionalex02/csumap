@@ -5,6 +5,7 @@ import BottomMenu from "./components/BottomMenu.jsx";
 import useStore from './components/store.jsx';
 import Header from './components/Header.jsx';
 import RouteInstructionsModal from './components/RouteInstructionsModal.jsx';
+import FeedbackForm from "./components/FeedbackForm.jsx";
 
 function App() {
     const { activeMenu, setPendingFromRoomId } = useStore();
@@ -33,6 +34,7 @@ function App() {
             {/* Передаем mapDataPath в BuildingMap, если он динамический */}
             <BuildingMap isMapActive={!activeMenu} />
             <BottomMenu/>
+
             <RouteInstructionsModal />
         </>
     );

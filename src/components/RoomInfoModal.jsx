@@ -75,10 +75,10 @@ function RoomInfoModal({room, onClose}) {
                         <span className="info-value">{room.description}</span>
                     </>
                 )}
-                {room.workingTime && (
+                {room.workingtime && (
                     <>
                         <span className="info-label">Часы работы</span>
-                        <span className="info-value">{room.workingTime}</span>
+                        <span className="info-value">{room.workingtime}</span>
                     </>
                 )}
             </div>

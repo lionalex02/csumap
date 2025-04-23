@@ -10,7 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.10",
+    "@radix-ui/themes": "^3.2.1",
     "konva": "^9.3.19",
+    "lucide-react": "^0.501.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-konva": "^19.0.3",

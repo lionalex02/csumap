@@ -25,6 +25,8 @@ const useStore = create((set, get) => ({
     isBuildingModalOpen: false,
     selectedBuilding: availableBuildings[0],
 
+    isFeedbackFormOpen: false,
+
     // Route Instructions State
     isRouteInstructionsVisible: false,
     routeInstructions: [],
@@ -77,6 +79,8 @@ const useStore = create((set, get) => ({
         graphData: { graph: null, nodeCoords: null },
         currentMapFloor: initialFloor,
     }),
+
+    setIsFeedbackFormOpen: (isOpen) => set({ isFeedbackFormOpen: isOpen }),
 
     // Route Building Action
     triggerRouteBuild: () => set((state) => {
