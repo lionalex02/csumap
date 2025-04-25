@@ -103,3 +103,13 @@
 .feedback-submit:hover {
     background-color: #b52a25;
 }
+
+.feedback {
+    color: #d6322d;
+    margin-top: 30px;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    justify-content: center;
+}

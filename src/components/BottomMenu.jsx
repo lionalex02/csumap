@@ -7,7 +7,7 @@ import '../BottomMenu.css';
 import useStore from './store.jsx';
 
 function BottomMenu() {
-    const { activeMenu, setActiveMenu, setIsBuildingModalOpen, setIsFeedbackFormOpen } = useStore(); // Get setIsBuildingModalOpen
+    const { activeMenu, setActiveMenu, setIsBuildingModalOpen} = useStore(); // Get setIsBuildingModalOpen
 
     const handleMapClick = () => {
         setActiveMenu(null);
@@ -24,10 +24,6 @@ function BottomMenu() {
     const handleBuildingClick = () => {
         setIsBuildingModalOpen(true);
     };
-
-    const handleFeedbackClick = () =>{
-        setIsFeedbackFormOpen(true)
-    }
 
     const getIconColor = (menuType) => {
         return activeMenu === menuType ? 'white' : '#D6322D';
@@ -88,29 +84,15 @@ function BottomMenu() {
                         </g>
                     </svg>
                 </button>
-                <button
 
-                    className={"feedback"}
-                    aria-label="Обратная связь"
-                    onClick={handleFeedbackClick}
-                >
-                    <div className={"feedbackLogo"}>
-                    <svg width="27" height="27" viewBox="0 0 448 448" fill={"#D6322D"}
-                         xmlns="http://www.w3.org/2000/svg">
-
-                            <path id="Vector" fillRule="evenodd" clipRule="evenodd"
-                                  d="M 224 0 A 224 224 0 0 0 0 224 A 224 224 0 0 0 224 448 A 224 224 0 0 0 448 224 A 224 224 0 0 0 224 0 z M 152 128 A 40 39.999992 0 0 1 192 168 A 40 39.999992 0 0 1 152 208 A 40 39.999992 0 0 1 112 168 A 40 39.999992 0 0 1 152 128 z M 296 128 A 40 39.999992 0 0 1 336 168 A 40 39.999992 0 0 1 296 208 A 40 39.999992 0 0 1 256 168 A 40 39.999992 0 0 1 296 128 z M 121.40625 256 A 25.565954 27.920292 0 0 1 142.99414 268.6875 C 142.99414 268.6875 168.91711 312.16602 224.02148 312.16602 C 279.12585 312.16602 305.05078 268.6875 305.05078 268.6875 A 25.565954 27.920292 0 1 1 347.50195 299.81055 C 347.50195 299.81055 304.77887 368 224.02148 368 C 143.26408 368 100.54492 299.81055 100.54492 299.81055 A 25.565954 27.920292 0 0 1 121.40625 256 z "/>
-
-                    </svg>
-                    </div>
-                </button>
             </div>
 
             {/* Render Modals */}
             {activeMenu === 'route' && <RouteMenu/>}
             {activeMenu === 'settings' && <SettingsMenu/>}
-            <FeedbackForm/>
             <BuildingSelectionModal/>
+            {/*Render for feedback form*/}
+            <FeedbackForm/>
         </>
     );
 }
