@@ -1,3 +1,5 @@
+// src/components/RouteInstructionsModal.jsx
+
 import React from 'react';
 import useStore from './store.jsx';
 import '../RouteInstructionsModal.css';
@@ -40,14 +42,13 @@ function RouteInstructionsModal() {
                 </button>
 
                 <div className="instruction-text-container">
-                    <p>{currentInstruction}</p>
+                    <p>{currentInstruction.text}</p>
                     {totalSteps > 1 && (
                         <span className="instruction-step-counter">
                            Шаг {currentInstructionIndex + 1} из {totalSteps}
                        </span>
                     )}
                 </div>
-
 
                 <button
                     className="instruction-nav-button next-button"
@@ -56,7 +57,8 @@ function RouteInstructionsModal() {
                     aria-label="Следующий шаг"
                 >
                     <svg width="13" height="25" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path transform="rotate(-180 6.5 12.5)" stroke="#343434" id="svg_1" strokeLinejoin="round" strokeLinecap="round" strokeWidth="2" d="m11.71875,1.09376l-10.43749,11.40624l10.43749,11.40624"/>                    </svg>
+                        <path transform="rotate(-180 6.5 12.5)" stroke="#343434" id="svg_1" strokeLinejoin="round" strokeLinecap="round" strokeWidth="2" d="m11.71875,1.09376l-10.43749,11.40624l10.43749,11.40624"/>
+                    </svg>
                 </button>
 
                 <button className="route-instructions-close-button" onClick={handleClose} aria-label="Закрыть маршрут">

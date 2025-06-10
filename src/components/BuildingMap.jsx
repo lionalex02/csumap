@@ -1,57 +1,86 @@
 // src/components/BuildingMap.jsx
+
 import { Layer, Path, Rect, Stage, Text, Group, Line } from "react-konva";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import RoomInfoModal from "./RoomInfoModal.jsx";
 import '../BuildingMap.css';
 import useStore from './store.jsx';
-import RouteMap from "./RouteMap.jsx"; // RouteMap теперь читает этаж из стора
+import RouteMap from "./RouteMap.jsx";
 
 const MAP_DATA_URL = 'https://staticstorm.ru/map/map_data2';
 const DETAILED_LOGGING = false;
-const DETAILED_DEBUG = false;
 
+// --- КОМПОНЕНТ ПЕРЕПИСАН ДЛЯ СТАБИЛЬНОСТИ ---
 function BuildingMap({ isMapActive }) {
-    if (DETAILED_LOGGING) console.log(`%c[BuildingMap Render Start] Props: isMapActive=${isMapActive}`, 'color: blue; font-weight: bold;');
+    if (DETAILED_LOGGING) console.log(`%c[BuildingMap Render]`, 'color: blue; font-weight: bold;');
 
     const isMobileDevice = useCallback(() => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent), []);
     const [stageScale, setStageScale] = useState(() => isMobileDevice() ? 0.3 : 0.5);
     const [stageX, setStageX] = useState(() => isMobileDevice() ? -80 : 250);
     const [stageY, setStageY] = useState(() => isMobileDevice() ? 0 : -150);
     const [isZooming, setIsZooming] = useState(false);
-    const [curLayer, setCurLayer] = useState(0); // Оставляем локальное состояние этажа
     const [layers, setLayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
     const [selectedRoom, setSelectedRoom] = useState(null);
 
-    // Store interactions
-    const setRoomsForStore = useStore((state) => state.setRooms);
-    const fromRoom = useStore((state) => state.fromRoom);
-    const toRoom = useStore((state) => state.toRoom);
-    const selectedSearchRoom = useStore((state) => state.selectedSearchRoom);
-    const setSelectedSearchRoomAction = useStore((state) => state.setSelectedSearchRoom);
-    const selectedBuilding = useStore((state) => state.selectedBuilding);
-    // Убирал я зависимость от currentMapFloor из стора
-    // const currentMapFloor = useStore((state) => state.currentMapFloor);
-    // const setCurrentMapFloor = useStore((state) => state.setCurrentMapFloor);
-    // const setGraphData = useStore((state) => state.setGraphData); // Убираем, если не используется здесь
+    // --- АТОМАРНЫЕ СЕЛЕКТОРЫ ZUSTAND ---
+    const currentMapFloor = useStore(state => state.currentMapFloor);
+    const fromRoom = useStore(state => state.fromRoom);
+    const toRoom = useStore(state => state.toRoom);
+    const highlightedObjectIds = useStore(state => state.highlightedObjectIds);
+    const selectedSearchRoom = useStore(state => state.selectedSearchRoom);
+
+    const selectedCandidate = useStore(state => {
+        const { specialSearch: ss } = state;
+        if (ss?.status === 'selection' && ss.candidates.length > 0) {
+            return ss.candidates[ss.selectedIndex].room;
+        }
+        return null;
+    });
+
+    const {
+        setRooms,
+        setCurrentMapFloor,
+        setSelectedSearchRoom,
+        setFromRoom,
+    } = useStore.getState();
 
     const lastCenterRef = useRef(null);
     const lastDistRef = useRef(0);
     const stageRef = useRef(null);
 
-    // Handle building change
-    useEffect(() => {
-        console.log("Selected building changed in store:", selectedBuilding);
-        if (selectedBuilding) {
-            const defaultFloorForBuilding = 1;
-            setCurLayer(defaultFloorForBuilding); // Используем локальное состояние
+    // --- ОБРАБОТЧИКИ, ЗАВЕРНУТЫЕ В USECALLBACK С МИНИМАЛЬНЫМИ ЗАВИСИМОСТЯМИ ---
+    const handleDragStart = useCallback((e) => {
+        if (!isMapActive || isZooming) e.target?.getStage()?.stopDrag();
+    }, [isMapActive, isZooming]);
+
+    const handleDragEnd = useCallback((e) => {
+        if (!isMapActive || !e?.target) return;
+        setStageX(e.target.x());
+        setStageY(e.target.y());
+    }, [isMapActive]);
+
+    const handleRoomClick = useCallback((room) => {
+        if (!isMapActive || !room) return;
+
+        const currentSpecialSearchStatus = useStore.getState().specialSearch?.status;
+
+        if (currentSpecialSearchStatus?.startsWith('pending')) {
+            setFromRoom(room);
+        } else {
+            setSelectedRoom(room);
         }
-    }, [selectedBuilding]);
+    }, [isMapActive, setFromRoom]);
 
+    const handleTouchRoom = useCallback((e, room) => {
+        e.evt.preventDefault();
+        handleRoomClick(room);
+    }, [handleRoomClick]);
 
-    const getCenter = (p1, p2) => ({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
-    const getDistance = (p1, p2) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+    const handleIconClick = useCallback((icon) => {
+        handleRoomClick({ ...icon });
+    }, [handleRoomClick]);
 
     const handleMultiTouch = useCallback((e) => {
         if (!isMapActive) return;
@@ -66,8 +95,8 @@ function BuildingMap({ isMapActive }) {
             }
             const p1 = { x: touch1.clientX, y: touch1.clientY };
             const p2 = { x: touch2.clientX, y: touch2.clientY };
-            const newCenter = getCenter(p1, p2);
-            const newDist = getDistance(p1, p2);
+            const newCenter = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+            const newDist = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
             if (!lastCenterRef.current) {
                 lastCenterRef.current = newCenter;
                 lastDistRef.current = newDist;
@@ -113,116 +142,35 @@ function BuildingMap({ isMapActive }) {
         setStageY(pointer.y - mousePointTo.y * clampedScale);
     }, [isMapActive]);
 
-    const handleDragStart = useCallback((e) => {
-        if (!isMapActive || isZooming) e.target?.getStage()?.stopDrag();
-    }, [isMapActive, isZooming]);
-
-    const handleDragEnd = useCallback((e) => {
-        if (!isMapActive || !e?.target) return;
-        setStageX(e.target.x());
-        setStageY(e.target.y());
-    }, [isMapActive]);
-
-    // Load map data
     useEffect(() => {
         let isMounted = true;
-        console.log("%c[BM Load Effect] Загрузка данных карты...", 'color: teal; font-weight: bold;');
         setLoading(true);
         setLoadError(null);
         fetch(MAP_DATA_URL)
-            .then(response => {
-                if (!response.ok) return response.text().then(text => { throw new Error(`HTTP ${response.status}: ${text.slice(0,100)}`); });
-                return response.json().catch(err => { throw new Error(`JSON Parse Error: ${err.message}`); });
-            })
+            .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
             .then(data => {
-                if (!isMounted) return;
-                if (!data || !Array.isArray(data.layers)) throw new Error("Invalid map data structure.");
-                console.log("Map data loaded, processing layers...");
-                const processedLayers = data.layers.map((layer, index) => {
-                    if (!layer || typeof layer !== 'object') return null;
-                    const floorIndex = index;
-                    return {
-                        ...layer,
-                        floorIndex: floorIndex,
-                        rooms: (Array.isArray(layer.rooms) ? layer.rooms : []).map(r => r ? { ...r, floorIndex: floorIndex, type: r.type || (r.data ? 'vectorized_room' : 'room') } : null).filter(Boolean),
-                        roads: (Array.isArray(layer.roads) ? layer.roads : []).map(r => r ? { ...r, floorIndex: floorIndex } : null).filter(Boolean),
-                        walls: (Array.isArray(layer.walls) ? layer.walls : []).map(w => w ? { ...w, floorIndex: floorIndex } : null).filter(Boolean),
-                        vectors: (Array.isArray(layer.vectors) ? layer.vectors : []).map(v => v ? { ...v, floorIndex: floorIndex, type: v.type || 'icon' } : null).filter(Boolean),
-                    };
-                }).filter(Boolean);
+                if (!isMounted || !data?.layers) return;
+                const processedLayers = data.layers.map((layer, index) => ({
+                    ...layer,
+                    floorIndex: index,
+                    rooms: (layer.rooms || []).map(r => ({ ...r, floorIndex: index, type: r.type || (r.data ? 'vectorized_room' : 'room') })).filter(Boolean),
+                    roads: (layer.roads || []).map(r => ({ ...r, floorIndex: index })).filter(Boolean),
+                    walls: (layer.walls || []).map(w => ({ ...w, floorIndex: index })).filter(Boolean),
+                    vectors: (layer.vectors || []).map(v => ({ ...v, floorIndex: index, type: v.type || 'icon' })).filter(Boolean),
+                })).filter(Boolean);
                 setLayers(processedLayers);
-
-                const allRoomsAndIconsForStore = processedLayers
-                    .flatMap(layer => [
-                        ...(layer.rooms || []),
-                        ...(layer.vectors || []).filter(v => v.type === 'icon') // Включаем все иконки, фильтр будет в UI
-                    ])
-                    // Фильтруем: есть ID, не лестница, И (есть имя ИЛИ есть описание)
-                    .filter(item => item && item.id && item.type !== 'stair' && (item.name || item.description))
-                    .map(item => ({
-                        id: item.id,
-                        name: item.name,
-                        description: item.description,
-                        floorIndex: item.floorIndex,
-                        type: item.type,
-                        ...(item.x !== undefined && { x: item.x }),
-                        ...(item.y !== undefined && { y: item.y }),
-                        ...(item.width !== undefined && { width: item.width }),
-                        ...(item.height !== undefined && { height: item.height }),
-                        ...(item.data && typeof item.data === 'string' && { data: item.data })
-                    }));
-
-                const uniqueRoomsForStore = Array.from(new Map(allRoomsAndIconsForStore.map(item => [item.id, item])).values());
-                setRoomsForStore(uniqueRoomsForStore); // Отправляем отфильтрованный список в стор
-                if (DETAILED_DEBUG) {
-                    const checkroomItem = uniqueRoomsForStore.find(item => item.id === 'th_r_checkroom');
-                    console.log('[BM Load Effect] Check checkroom item in store:', checkroomItem);
-                }
-                console.log(`%c[BM Load Effect] Загружено: ${processedLayers.length} слоев, ${uniqueRoomsForStore.length} объектов для стора.`, 'color: teal');
-                setLoading(false);
-                setLoadError(null);
+                const allItems = processedLayers.flatMap(l => [...(l.rooms || []), ...(l.vectors || [])])
+                    .filter(item => item?.id && (item.name || item.description));
+                setRooms(Array.from(new Map(allItems.map(item => [item.id, item])).values()));
             })
             .catch(error => {
-                if (!isMounted) return;
-                console.error("[BM Load Effect] Ошибка:", error);
-                setLoadError(error.message || "Неизвестная ошибка загрузки карты.");
-                setLoading(false);
-                setLayers([]);
-                setRoomsForStore([]);
-                // setGraphData(null, null); // Убираем, т.к. граф не хранится в сторе
+                if (isMounted) setLoadError(error.message);
+            })
+            .finally(() => {
+                if (isMounted) setLoading(false);
             });
-        return () => {
-            isMounted = false;
-        };
-    }, [MAP_DATA_URL, setRoomsForStore]); // setGraphData убран из зависимостей
-
-    const handleRoomClick = useCallback((room) => {
-        if (!isMapActive || !room || typeof room !== 'object') return;
-        // Передаем объект как есть, RoomInfoModal сам разберется
-        if (DETAILED_LOGGING) console.log('[BM RoomClick]', room);
-        setSelectedRoom(room);
-    }, [isMapActive]);
-
-    const handleTouchRoom = useCallback((e, room) => {
-        if (!isMapActive || !e?.evt) return;
-        e.evt.preventDefault();
-        handleRoomClick(room);
-    }, [isMapActive, handleRoomClick]);
-
-    const handleIconClick = useCallback((icon) => {
-        if (!isMapActive || !icon || typeof icon !== 'object') return;
-        // Передаем объект как есть, RoomInfoModal сам разберется
-        if (DETAILED_LOGGING) console.log('[BM IconClick]', icon);
-        setSelectedRoom({ ...icon }); // Копируем свойства иконки
-    }, [isMapActive]);
-
-
-    const handleLayerChange = useCallback((layerIndex) => {
-        if (!isMapActive || loading || !Array.isArray(layers) || !layers[layerIndex] || curLayer === layerIndex) return;
-        console.log(`[BM LayerChange] Переключение на этаж ${layerIndex}`);
-        setCurLayer(layerIndex); // Используем локальное состояние
-    }, [isMapActive, loading, layers, curLayer]);
-
+        return () => { isMounted = false; };
+    }, [setRooms]);
 
     const getPathBoundingBox = useCallback((data) => {
         if (!data || typeof data !== 'string') return null;
@@ -231,391 +179,163 @@ function BuildingMap({ isMapActive }) {
         let currentX = 0, currentY = 0, startX = 0, startY = 0, firstPoint = true;
         let relative = false;
 
-        commands.forEach((cmd, cmdIndex) => {
+        commands.forEach((cmd) => {
             const type = cmd[0].toUpperCase();
             relative = cmd[0] !== type;
-            let args = [];
-            try {
-                args = (cmd.slice(1).trim().match(/-?\d+(\.\d+)?/g) || []).map(Number).filter(n => !isNaN(n));
-                switch (type) {
-                    case 'M':
-                        for (let i = 0; i < args.length; i += 2) {
-                            currentX = relative && !firstPoint ? currentX + args[i] : args[i];
-                            currentY = relative && !firstPoint ? currentY + args[i + 1] : args[i + 1];
-                            points.push({ x: currentX, y: currentY });
-                            if (i === 0) { startX = currentX; startY = currentY; }
-                            firstPoint = false;
-                        }
-                        break;
-                    case 'L': case 'T':
-                        for (let i = 0; i < args.length; i += 2) {
-                            currentX = relative ? currentX + args[i] : args[i];
-                            currentY = relative ? currentY + args[i + 1] : args[i + 1];
-                            points.push({ x: currentX, y: currentY });
-                        }
-                        break;
-                    case 'H':
-                        for (let i = 0; i < args.length; i++) {
-                            currentX = relative ? currentX + args[i] : args[i];
-                            points.push({ x: currentX, y: currentY });
-                        }
-                        break;
-                    case 'V':
-                        for (let i = 0; i < args.length; i++) {
-                            currentY = relative ? currentY + args[i] : args[i];
-                            points.push({ x: currentX, y: currentY });
-                        }
-                        break;
-                    case 'C':
-                        if (args.length >= 6) {
-                            currentX = relative ? currentX + args[args.length - 2] : args[args.length - 2];
-                            currentY = relative ? currentY + args[args.length - 1] : args[args.length - 1];
-                            points.push({ x: currentX, y: currentY });
-                        }
-                        break;
-                    case 'S': case 'Q':
-                        if (args.length >= 4) {
-                            currentX = relative ? currentX + args[args.length - 2] : args[args.length - 2];
-                            currentY = relative ? currentY + args[args.length - 1] : args[args.length - 1];
-                            points.push({ x: currentX, y: currentY });
-                        }
-                        break;
-                    case 'A':
-                        if (args.length >= 7) {
-                            currentX = relative ? currentX + args[args.length - 2] : args[args.length - 2];
-                            currentY = relative ? currentY + args[args.length - 1] : args[args.length - 1];
-                            points.push({ x: currentX, y: currentY });
-                        }
-                        break;
-                    case 'Z':
-                        currentX = startX;
-                        currentY = startY;
-                        firstPoint = true;
-                        break;
-                }
-            } catch (parseError) {
-                console.error(`[getPathBoundingBox] Ошибка парсинга команды #${cmdIndex} ('${cmd}'):`, parseError);
+            let args = (cmd.slice(1).trim().match(/-?\d+(\.\d+)?/g) || []).map(Number).filter(n => !isNaN(n));
+
+            switch (type) {
+                case 'M':
+                    for (let i = 0; i < args.length; i += 2) {
+                        currentX = relative && !firstPoint ? currentX + args[i] : args[i];
+                        currentY = relative && !firstPoint ? currentY + args[i + 1] : args[i + 1];
+                        points.push({ x: currentX, y: currentY });
+                        if (i === 0) { startX = currentX; startY = currentY; }
+                        firstPoint = false;
+                    }
+                    break;
+                case 'L': case 'T':
+                    for (let i = 0; i < args.length; i += 2) {
+                        currentX = relative ? currentX + args[i] : args[i];
+                        currentY = relative ? currentY + args[i + 1] : args[i + 1];
+                        points.push({ x: currentX, y: currentY });
+                    }
+                    break;
+                case 'H':
+                    for (let i = 0; i < args.length; i++) {
+                        currentX = relative ? currentX + args[i] : args[i];
+                        points.push({ x: currentX, y: currentY });
+                    }
+                    break;
+                case 'V':
+                    for (let i = 0; i < args.length; i++) {
+                        currentY = relative ? currentY + args[i] : args[i];
+                        points.push({ x: currentX, y: currentY });
+                    }
+                    break;
+                case 'C': case 'S': case 'Q': case 'A':
+                    if (args.length >= (type === 'A' ? 7 : (type === 'C' ? 6 : 4))) {
+                        currentX = relative ? currentX + args[args.length - 2] : args[args.length - 2];
+                        currentY = relative ? currentY + args[args.length - 1] : args[args.length - 1];
+                        points.push({ x: currentX, y: currentY });
+                    }
+                    break;
+                case 'Z':
+                    currentX = startX; currentY = startY; firstPoint = true;
+                    break;
             }
         });
 
         if (points.length === 0) return null;
-        try {
-            const xs = points.map(p => p.x).filter(x => !isNaN(x));
-            const ys = points.map(p => p.y).filter(y => !isNaN(y));
-            if (xs.length === 0 || ys.length === 0) return null;
-            return {
-                minX: Math.min(...xs),
-                minY: Math.min(...ys),
-                maxX: Math.max(...xs),
-                maxY: Math.max(...ys),
-            };
-        } catch (bboxError) {
-            console.error('[getPathBoundingBox] Ошибка при вычислении bbox:', bboxError, points);
-            return null;
-        }
+        const xs = points.map(p => p.x).filter(x => !isNaN(x));
+        const ys = points.map(p => p.y).filter(y => !isNaN(y));
+        if (xs.length === 0 || ys.length === 0) return null;
+        return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
     }, []);
 
-    const getFloorCenter = (floorIndex) => {
+    const getFloorCenter = useCallback((floorIndex) => {
         const layer = layers[floorIndex];
         if (!layer) return null;
-
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         layer.walls.forEach(wall => {
             const bbox = getPathBoundingBox(wall.data);
-            if (bbox) {
-                minX = Math.min(minX, bbox.minX);
-                minY = Math.min(minY, bbox.minY);
-                maxX = Math.max(maxX, bbox.maxX);
-                maxY = Math.max(maxY, bbox.maxY);
-            }
+            if (bbox) { minX = Math.min(minX, bbox.minX); minY = Math.min(minY, bbox.minY); maxX = Math.max(maxX, bbox.maxX); maxY = Math.max(maxY, bbox.maxY); }
         });
-
-        if (minX === Infinity || minY === Infinity || maxX === -Infinity || maxY === -Infinity) {
-            return null;
-        }
-
+        if (minX === Infinity) return null;
         return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
-    };
+    }, [layers, getPathBoundingBox]);
 
-
-    // Эффект центрирования
     useEffect(() => {
         if (!selectedSearchRoom?.id) return;
-        if (DETAILED_LOGGING) console.log('%c[BM Center Effect] Запуск центрирования на:', 'color: darkcyan; font-weight: bold;', selectedSearchRoom.id);
-
-        let targetLayer;
-        let centerX, centerY;
-
+        let targetLayer, centerX, centerY;
         if (selectedSearchRoom.id.startsWith('floor-') && selectedSearchRoom.id.endsWith('-center')) {
             targetLayer = selectedSearchRoom.floorIndex;
             const center = getFloorCenter(targetLayer);
-            if (center) {
-                centerX = center.x;
-                centerY = center.y;
-            } else {
-                console.warn(`Не удалось вычислить центр для этажа ${targetLayer}`);
-                setSelectedSearchRoomAction(null);
-                return;
-            }
+            if (center) { centerX = center.x; centerY = center.y; }
         } else {
             targetLayer = selectedSearchRoom.floorIndex;
             if (selectedSearchRoom.data && typeof selectedSearchRoom.data === 'string') {
                 const bbox = getPathBoundingBox(selectedSearchRoom.data);
-                if (bbox) {
-                    centerX = bbox.minX + (bbox.maxX - bbox.minX) / 2;
-                    centerY = bbox.minY + (bbox.maxY - bbox.minY) / 2;
-                } else {
-                    console.warn("Не удалось рассчитать ограничивающий прямоугольник для пути искомой комнаты:", selectedSearchRoom.id);
-                    setSelectedSearchRoomAction(null);
-                    return;
-                }
+                if (bbox) { centerX = bbox.minX + (bbox.maxX - bbox.minX) / 2; centerY = bbox.minY + (bbox.maxY - bbox.minY) / 2; }
             } else if (selectedSearchRoom.x !== undefined && selectedSearchRoom.y !== undefined) {
-                centerX = selectedSearchRoom.x + (selectedSearchRoom.width || 0) / 2;
-                centerY = selectedSearchRoom.y + (selectedSearchRoom.height || 0) / 2;
-            } else {
-                console.warn("У искомой комнаты нет валидных координат или данных пути:", selectedSearchRoom.id);
-                setSelectedSearchRoomAction(null);
-                return;
+                centerX = selectedSearchRoom.x + (selectedSearchRoom.width || 0) / 2; centerY = selectedSearchRoom.y + (selectedSearchRoom.height || 0) / 2;
             }
         }
-
-        if (targetLayer !== undefined && targetLayer !== curLayer && layers[targetLayer]) {
-            if (DETAILED_LOGGING) console.log(`[BM Center Effect] Переключение на этаж ${targetLayer} для центрирования`);
-            setCurLayer(targetLayer);
-        }
-
+        if (targetLayer !== undefined && targetLayer !== currentMapFloor && layers[targetLayer]) setCurrentMapFloor(targetLayer);
         requestAnimationFrame(() => {
-            if (centerX !== undefined && centerY !== undefined && !isNaN(centerX) && !isNaN(centerY)) {
+            if (centerX !== undefined && centerY !== undefined) {
                 const targetScale = isMobileDevice() ? 0.35 : 0.7;
-                const screenCenterX = window.innerWidth / 2;
-                const screenCenterY = window.innerHeight / 2;
-                const newX = screenCenterX - centerX * targetScale;
-                const newY = screenCenterY - centerY * targetScale;
-                if (DETAILED_LOGGING) console.log(`[BM Center Effect] Установка позиции: scale=${targetScale.toFixed(1)}, x=${newX.toFixed(1)}, y=${newY.toFixed(1)}`);
-                setStageScale(targetScale);
-                setStageX(newX);
-                setStageY(newY);
-            } else {
-                console.warn('[BM Center Effect] Не удалось рассчитать центр для', selectedSearchRoom.id);
+                const newX = window.innerWidth / 2 - centerX * targetScale;
+                const newY = window.innerHeight / 2 - centerY * targetScale;
+                setStageScale(targetScale); setStageX(newX); setStageY(newY);
             }
-
-            if (DETAILED_LOGGING) console.log(`%c[BM Center Effect] Сброс selectedSearchRoom после центрирования`, 'color: darkcyan;');
-            setSelectedSearchRoomAction(null);
+            setSelectedSearchRoom(null);
         });
-    }, [selectedSearchRoom, layers, getPathBoundingBox, setSelectedSearchRoomAction, curLayer, isMobileDevice]);
-
+    }, [selectedSearchRoom, layers, getPathBoundingBox, setSelectedSearchRoom, currentMapFloor, setCurrentMapFloor, isMobileDevice, getFloorCenter]);
 
     const currentLayerData = useMemo(() => (
-        (Array.isArray(layers) && layers[curLayer]) // Используем локальный curLayer
-            ? layers[curLayer]
-            : { walls: [], roads: [], rooms: [], vectors: [] }
-    ), [layers, curLayer]); // Используем локальный curLayer
+        layers[currentMapFloor] || { walls: [], roads: [], rooms: [], vectors: [] }
+    ), [layers, currentMapFloor]);
 
+    const renderedWalls = useMemo(() => currentLayerData.walls.map((w, i) => <Path key={`w-${currentMapFloor}-${i}`} data={w.data} stroke={w.stroke || "grey"} strokeWidth={w.strokeWidth || 1} listening={false} perfectDrawEnabled={false} />), [currentLayerData.walls, currentMapFloor]);
+    const renderedRoads = useMemo(() => currentLayerData.roads.map((r, i) => <Line key={`rd-${currentMapFloor}-${i}`} points={[r.x1,r.y1,r.x2,r.y2]} stroke={'transparent'} strokeWidth={2} listening={false} perfectDrawEnabled={false} />), [currentLayerData.roads, currentMapFloor]);
+    const renderedIcons = useMemo(() => currentLayerData.vectors.map(v => v.data ? <Path key={`v-${currentMapFloor}-${v.id}`} id={v.id.toString()} data={v.data} stroke={v.stroke||"grey"} strokeWidth={v.strokeWidth??1} fill={v.fill} hitStrokeWidth={10} onClick={() => handleIconClick(v)} onTap={(e) => {e.evt.preventDefault(); handleIconClick(v)}} listening={!!(v.name || v.description)} perfectDrawEnabled={false} x={v.x||0} y={v.y||0}/>:null), [currentLayerData.vectors, currentMapFloor, handleIconClick]);
 
-    const renderedWalls = useMemo(() => {
-        const walls = currentLayerData.walls || [];
-        return walls.map((wall, index) => {
-            if (!wall || typeof wall.data !== 'string') return null;
-            return (
-                <Path
-                    key={`wall-${curLayer}-${wall.id || index}-${wall.data?.substring(0, 15)}`}
-                    data={wall.data}
-                    x={wall.x || 0}
-                    y={wall.y || 0}
-                    stroke={wall.stroke || "grey"}
-                    strokeWidth={wall.strokeWidth || 1}
-                    listening={false}
-                    perfectDrawEnabled={false}
-                    shadowForStrokeEnabled={false}
-                    opacity={0.8}
-                />
-            );
-        }).filter(Boolean);
-    }, [currentLayerData.walls, curLayer]);
-
-
-    const renderedRoads = useMemo(() => {
-        const roads = currentLayerData.roads || [];
-        return roads.map((road, index) => {
-            if (!road || typeof road.x1 !== 'number' || typeof road.y1 !== 'number' || typeof road.x2 !== 'number' || typeof road.y2 !== 'number') return null;
-            return (
-                <Line
-                    key={`road-${curLayer}-${road.id || index}`}
-                    points={[road.x1, road.y1, road.x2, road.y2]}
-                    stroke={road.stroke || 'transparent'}
-                    strokeWidth={road.strokeWidth ?? 2}
-                    listening={false}
-                    perfectDrawEnabled={false}
-                />
-            );
-        }).filter(Boolean);
-    }, [currentLayerData.roads, curLayer]);
-
-
-    const renderedIcons = useMemo(() => {
-        const vectors = currentLayerData.vectors || [];
-        if (!Array.isArray(vectors)) return [];
-        return vectors.map((vector) => {
-            if (!vector || !vector.id) return null;
-            const isInteractive = !!(vector.name || vector.description);
-            if (vector.data && typeof vector.data === 'string') {
-                return (
-                    <Path
-                        key={`vector-${curLayer}-${vector.id}`}
-                        id={vector.id.toString()}
-                        data={vector.data}
-                        stroke={vector.stroke || "grey"}
-                        strokeWidth={vector.strokeWidth ?? 1}
-                        fill={vector.fill}
-                        hitStrokeWidth={isInteractive ? 10 : 0}
-                        onClick={isInteractive ? () => handleIconClick(vector) : undefined}
-                        onTap={isInteractive ? (e) => { e.evt.preventDefault(); handleIconClick(vector); } : undefined}
-                        listening={isInteractive}
-                        perfectDrawEnabled={false}
-                        x={vector.x || 0}
-                        y={vector.y || 0}
-                    />
-                );
-            }
-            return null;
-        }).filter(Boolean);
-    }, [currentLayerData.vectors, curLayer, handleIconClick]);
-
-
-    const renderedRooms = useMemo(() => (
-        (currentLayerData.rooms?.map(room => {
+    const renderedRooms = useMemo(() => {
+        return currentLayerData.rooms?.map(room => {
             if (!room || !room.id) return null;
 
             const isSelected = selectedRoom?.id === room.id;
-            // Используем curLayer для проверки этажа
-            const isStartSelected = fromRoom?.id === room.id && fromRoom?.floorIndex === curLayer;
-            const isEndSelected = toRoom?.id === room.id && toRoom?.floorIndex === curLayer;
+            const isStartSelected = fromRoom?.id === room.id && fromRoom?.floorIndex === currentMapFloor;
+            const isEndSelected = toRoom?.id === room.id && toRoom?.floorIndex === currentMapFloor;
+            const isHighlighted = highlightedObjectIds.includes(room.id);
+            const isCandidateSelected = selectedCandidate?.id === room.id;
 
-            let baseColor = 'rgba(200, 200, 200, 0.3)';
-            let strokeColor = "grey";
-            let strokeWidth = 0.5;
-
-            if (room.type === 'stair') {
-                baseColor = 'rgba(180, 180, 255, 0.4)';
-                strokeColor = "darkblue";
-                strokeWidth = 1;
-            } else if (room.type === 'technical') {
-                baseColor = 'rgba(210, 210, 210, 0.2)';
-                strokeColor = "#bbb";
-                strokeWidth = 0.5;
-            } else if (room.type === 'wc' || room.name?.toLowerCase().includes('туалет')) {
-                baseColor = 'rgba(200, 230, 255, 0.4)';
-            }
+            let baseColor = 'rgba(200, 200, 200, 0.3)', strokeColor = "grey", strokeWidth = 0.5;
 
             if (isStartSelected && isEndSelected) {
-                baseColor = 'rgba(255, 165, 0, 0.7)';
-                strokeColor = 'darkorange';
-                strokeWidth = 1.5;
+                baseColor = 'rgba(255, 165, 0, 0.7)'; strokeColor = 'darkorange'; strokeWidth = 1.5;
             } else if (isStartSelected || isEndSelected) {
-                baseColor = 'rgba(255, 0, 0, 0.4)';
-                strokeColor = 'darkred';
-                strokeWidth = 1.5;
+                baseColor = 'rgba(255, 0, 0, 0.4)'; strokeColor = 'darkred'; strokeWidth = 1.5;
+            } else if (isCandidateSelected) {
+                baseColor = 'rgba(0, 255, 127, 0.5)'; strokeColor = 'green'; strokeWidth = 2;
+            } else if (isHighlighted) {
+                baseColor = 'rgba(255, 215, 0, 0.5)'; strokeColor = 'orange'; strokeWidth = 1.5;
+            } else if (room.type === 'stair') {
+                baseColor = 'rgba(180, 180, 255, 0.4)'; strokeColor = "darkblue"; strokeWidth = 1;
+            } else if (room.type === 'technical') {
+                baseColor = 'rgba(210, 210, 210, 0.2)'; strokeColor = "#bbb"; strokeWidth = 0.5;
             }
+            if (isSelected) { strokeColor = '#D6322D'; strokeWidth = 2; }
 
-            if (isSelected) {
-                strokeColor = '#D6322D';
-                strokeWidth = 2;
-            }
-
-            const commonProps = {
-                id: room.id,
-                stroke: strokeColor,
-                strokeWidth: strokeWidth,
-                onClick: (room.name || room.description) ? () => handleRoomClick(room) : undefined,
-                onTap: (room.name || room.description) ? (e) => handleTouchRoom(e, room) : undefined,
-                listening: !!(room.name || room.description),
-                perfectDrawEnabled: false,
-                shadowEnabled: false,
-                fill: baseColor,
-            };
-
-            const displayText = room.name;
-
-            const textProps = {
-                text: displayText || '',
-                fontSize: room.fontSize || 13,
-                fill: '#333',
-                listening: false,
-                perfectDrawEnabled: false,
-                shadowEnabled: false,
-                align: 'center',
-                verticalAlign: 'middle',
-                fontFamily: "'Nunito', sans-serif",
-                fontOpticalSizing: 'auto',
-                fontWeight: 500,
-                fontStyle: 'normal',
-            };
+            const commonProps = { id: room.id, stroke: strokeColor, strokeWidth, onClick: () => handleRoomClick(room), onTap: (e) => handleTouchRoom(e, room), listening: !!(room.name || room.description), perfectDrawEnabled: false, fill: baseColor };
+            const textProps = { text: room.name || '', fontSize: 13, fill: '#333', listening: false, align: 'center', verticalAlign: 'middle', fontFamily: "'Nunito', sans-serif" };
+            const displayText = room.name || '';
 
             if (room.data && typeof room.data === 'string') {
                 const bbox = getPathBoundingBox(room.data);
                 if (!bbox) return null;
-                const textWidth = bbox.maxX - bbox.minX - 4;
-                const textHeight = bbox.maxY - bbox.minY - 4;
-                const showText = displayText && textWidth > 10 && textHeight > 5;
-
                 return (
-                    <Group key={`${room.id}-${curLayer}`}>
-                        <Path
-                            {...commonProps}
-                            data={room.data}
-                        />
-                        {showText && (
-                            <Text
-                                {...textProps}
-                                x={bbox.minX + 2}
-                                y={bbox.minY + 2}
-                                width={textWidth}
-                                height={textHeight}
-                                clipFunc={(ctx) => {
-                                    const path = new Path2D(room.data);
-                                    ctx.clip(path);
-                                }}
-                            />
-                        )}
+                    <Group key={`${room.id}-${currentMapFloor}`}>
+                        <Path {...commonProps} data={room.data} />
+                        {displayText && <Text {...textProps} x={bbox.minX} y={bbox.minY} width={bbox.maxX - bbox.minX} height={bbox.maxY - bbox.minY} clipFunc={ctx => { const p = new Path2D(room.data); ctx.clip(p); }} />}
                     </Group>
                 );
-            } else if (room.x !== undefined && room.y !== undefined && room.width && room.height) {
-                const showText = displayText && room.width > 15 && room.height > 8;
-
-                return (
-                    <Group key={`${room.id}-${curLayer}`}>
-                        <Rect
-                            {...commonProps}
-                            x={room.x}
-                            y={room.y}
-                            width={room.width}
-                            height={room.height}
-                        />
-                        {showText && (
-                            <Text
-                                {...textProps}
-                                x={room.x}
-                                y={room.y}
-                                width={room.width}
-                                height={room.height}
-                            />
-                        )}
-                    </Group>
-                );
-            } else {
-                return null;
             }
-        }) || []).filter(Boolean)
-    ), [currentLayerData.rooms, curLayer, fromRoom, toRoom, selectedRoom, handleRoomClick, handleTouchRoom, getPathBoundingBox]);
+            if (room.x !== undefined) {
+                return (
+                    <Group key={`${room.id}-${currentMapFloor}`}>
+                        <Rect {...commonProps} x={room.x} y={room.y} width={room.width} height={room.height} />
+                        {displayText && <Text {...textProps} x={room.x} y={room.y} width={room.width} height={room.height} />}
+                    </Group>
+                );
+            }
+            return null;
+        });
+    }, [currentLayerData.rooms, currentMapFloor, fromRoom, toRoom, selectedRoom, highlightedObjectIds, selectedCandidate, getPathBoundingBox, handleRoomClick, handleTouchRoom]);
 
-
-    if (loading) {
-        return ( <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '20px', color: '#555' }}> Загрузка карты... </div> );
-    }
-    if (loadError || !layers || layers.length === 0) {
-        return ( <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '20px', color: 'red' }}> {loadError || 'Ошибка загрузки данных карты.'} </div> );
-    }
-
+    if (loading) return <div style={{position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)'}}>Загрузка...</div>;
+    if (loadError) return <div style={{color:'red', position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)'}}>{loadError}</div>;
 
     return (
         <>
@@ -624,9 +344,8 @@ function BuildingMap({ isMapActive }) {
                     layers[floorIndex] ? (
                         <button
                             key={`fb-${floorIndex}`}
-                            className={`floor-button ${curLayer === floorIndex ? 'active' : ''}`}
-                            onClick={() => handleLayerChange(floorIndex)}
-                            aria-label={`Этаж ${floorIndex}`} // Просто номер этажа = индекс
+                            className={`floor-button ${currentMapFloor === floorIndex ? 'active' : ''}`}
+                            onClick={() => setCurrentMapFloor(floorIndex)}
                         >
                             {floorIndex}
                         </button>
@@ -634,35 +353,22 @@ function BuildingMap({ isMapActive }) {
                 ))}
             </div>
             <Stage
-                height={window.innerHeight}
-                width={window.innerWidth}
-                onWheel={handleWheel}
-                onTouchMove={handleMultiTouch}
-                onTouchEnd={multiTouchEnd}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                scaleX={stageScale}
-                scaleY={stageScale}
-                x={stageX}
-                y={stageY}
-                draggable={isMapActive && !isZooming}
-                ref={stageRef}
+                height={window.innerHeight} width={window.innerWidth}
+                onWheel={handleWheel} onTouchMove={handleMultiTouch} onTouchEnd={multiTouchEnd}
+                onDragStart={handleDragStart} onDragEnd={handleDragEnd}
+                scaleX={stageScale} scaleY={stageScale} x={stageX} y={stageY}
+                draggable={isMapActive && !isZooming} ref={stageRef}
                 style={{ background: "#F3F3F4", cursor: isMapActive ? 'grab' : 'default' }}
-                onMouseDown={isMapActive ? (e) => e.target.getStage().container().style.cursor = 'grabbing' : undefined}
-                onMouseUp={isMapActive ? (e) => e.target.getStage().container().style.cursor = 'grab' : undefined}
             >
                 <Layer>
                     {renderedWalls}
                     {renderedRoads}
-                    {renderedRooms}
                     {renderedIcons}
-                    <RouteMap currentFloorIndex={curLayer} mapDataPath={MAP_DATA_URL} />
+                    {renderedRooms}
+                    <RouteMap currentFloorIndex={currentMapFloor} mapDataPath={MAP_DATA_URL} />
                 </Layer>
             </Stage>
-            <RoomInfoModal
-                room={selectedRoom}
-                onClose={() => setSelectedRoom(null)}
-            />
+            <RoomInfoModal room={selectedRoom} onClose={() => setSelectedRoom(null)} />
         </>
     );
 }

@@ -1,4 +1,7 @@
+// src/components/store.jsx
+
 import { create } from 'zustand';
+import { findShortestPath, findAllDistances } from './dijkstra.js';
 
 export const availableBuildings = [
     { id: 'building1', name: 'Корпус 1' },
@@ -8,125 +11,89 @@ export const availableBuildings = [
 
 const initialFloor = 1;
 
-// Функция для извлечения номера этажа из инструкции
-const extractFloorNumber = (instruction) => {
-    const match = instruction.match(/на (\d+) этаж/);
-    return match ? parseInt(match[1], 10) : null;
-};
-
 const useStore = create((set, get) => ({
+    // --- ДАННЫЕ ---
     fromRoom: null,
     toRoom: null,
     rooms: [],
     activeMenu: null,
     selectedSearchRoom: null,
     buildRouteTrigger: null,
-
     isBuildingModalOpen: false,
     selectedBuilding: availableBuildings[0],
-
     isFeedbackFormOpen: false,
+    graphData: { graph: null, nodeCoords: null },
+    currentMapFloor: initialFloor,
+    pendingFromRoomId: null,
 
-    // Route Instructions State
+    // --- СОСТОЯНИЯ ДЛЯ НОВЫХ ФИЧ ---
     isRouteInstructionsVisible: false,
     routeInstructions: [],
     currentInstructionIndex: 0,
-
-    // Map & Pathfinding State (managed mostly by RouteMap now)
-    graphData: { graph: null, nodeCoords: null },
     calculatedPath: null,
-    currentMapFloor: initialFloor,
+    specialSearch: null,
+    highlightedObjectIds: [],
 
-    // State for QR Code Handling
-    pendingFromRoomId: null,
+    // --- ACTIONS ---
 
-    // --- Actions ---
-
+    // Базовые
     setFromRoom: (room) => set({ fromRoom: room }),
     setToRoom: (room) => set({ toRoom: room }),
-
-    setRooms: (rooms) => set((state) => {
-        const newState = { rooms };
-        if (state.pendingFromRoomId && rooms?.length > 0) {
-            const foundRoom = rooms.find(r => r.id === state.pendingFromRoomId);
+    setRooms: (rooms) => {
+        const pendingId = get().pendingFromRoomId;
+        if (pendingId && rooms?.length > 0) {
+            const foundRoom = rooms.find(r => r.id === pendingId);
             if (foundRoom) {
-                console.log(`[Store] Processing pendingFromRoomId: ${state.pendingFromRoomId}. Found:`, foundRoom.name);
-                newState.fromRoom = foundRoom; // Set the 'from' room
-                newState.activeMenu = 'route'; // Open the route menu
-                newState.pendingFromRoomId = null; // Clear the pending ID
-            } else {
-                console.warn(`[Store] Pending room ID ${state.pendingFromRoomId} not found in loaded rooms.`);
-                newState.pendingFromRoomId = null; // Clear even if not found to avoid retrying
-            }
-        }
-        return newState;
-    }),
-
+                set({ rooms, fromRoom: foundRoom, activeMenu: 'route', pendingFromRoomId: null });
+            } else { set({ rooms, pendingFromRoomId: null }); }
+        } else { set({ rooms }); }
+    },
     setActiveMenu: (menu) => set({ activeMenu: menu }),
     setSelectedSearchRoom: (room) => set({ selectedSearchRoom: room }),
+    setCurrentMapFloor: (floorIndex) => set({ currentMapFloor: floorIndex }),
+    setGraphData: (graph, nodeCoords) => set({ graphData: { graph, nodeCoords } }),
+    setPendingFromRoomId: (roomId) => set({ pendingFromRoomId: roomId }),
 
-    // Building Selection Actions
+    // Модальные окна
     setIsBuildingModalOpen: (isOpen) => set({ isBuildingModalOpen: isOpen }),
-    setSelectedBuilding: (building) => set({
-        selectedBuilding: building,
-        fromRoom: null, // Сбрасываем при смене корпуса
-        toRoom: null,
-        buildRouteTrigger: null,
-        isRouteInstructionsVisible: false,
-        routeInstructions: [],
-        currentInstructionIndex: 0,
-        calculatedPath: null,
-        graphData: { graph: null, nodeCoords: null },
-        currentMapFloor: initialFloor,
-    }),
-
     setIsFeedbackFormOpen: (isOpen) => set({ isFeedbackFormOpen: isOpen }),
 
-    // Route Building Action
-    triggerRouteBuild: () => set((state) => {
-        if (!state.fromRoom || !state.toRoom) {
-            console.warn("[Store] Cannot trigger route build: Missing 'from' or 'to' room.");
-            return { buildRouteTrigger: null };
+    // Управление маршрутом
+    triggerRouteBuild: () => {
+        if (get().fromRoom && get().toRoom) {
+            set({ buildRouteTrigger: Date.now() });
         }
-        return {
-            buildRouteTrigger: Date.now(),
-            isRouteInstructionsVisible: false,
-            routeInstructions: [],
-            currentInstructionIndex: 0,
-            calculatedPath: null
-        };
-    }),
-
-    // Path & Map State Actions (Primarily used by RouteMap)
-    setGraphData: (graph, nodeCoords) => set({ graphData: { graph, nodeCoords } }),
+    },
     setCalculatedPath: (path) => set({ calculatedPath: path }),
-    setCurrentMapFloor: (floorIndex) => set({ currentMapFloor: floorIndex }),
 
-    // Route Instructions Actions
+    // Инструкции
     setIsRouteInstructionsVisible: (isVisible) => set({ isRouteInstructionsVisible: isVisible }),
     setRouteInstructions: (instructions) => set({
         routeInstructions: instructions,
         currentInstructionIndex: 0,
-        isRouteInstructionsVisible: instructions && instructions.length > 0,
+        isRouteInstructionsVisible: !!(instructions && instructions.length > 0),
     }),
-    setCurrentInstructionIndex: (index) => set({ currentInstructionIndex: index }),
-
-    // Navigation through instructions
     goToNextInstruction: () => set((state) => {
         const nextIndex = state.currentInstructionIndex + 1;
         if (nextIndex < state.routeInstructions.length) {
             const nextInstruction = state.routeInstructions[nextIndex];
-            const floorNumber = extractFloorNumber(nextInstruction);
-            if (floorNumber !== null && nextInstruction.includes("по лестнице")) {
-                // Переключаем этаж
-                state.setCurrentMapFloor(floorNumber);
-                state.set
-                // Устанавливаем фиктивную "комнату" для центрирования на середине этажа
-                state.setSelectedSearchRoom({ id: `floor-${floorNumber}-center`, floorIndex: floorNumber });
+            const floorMatch = nextInstruction.text.match(/на (\d+) этаж/);
+            const newFloorIndex = floorMatch ? parseInt(floorMatch[1], 10) : null;
+
+            const newState = { currentInstructionIndex: nextIndex };
+
+            if (newFloorIndex !== null && newFloorIndex !== state.currentMapFloor) {
+                newState.currentMapFloor = newFloorIndex;
+                newState.selectedSearchRoom = {
+                    id: `floor-${newFloorIndex}-center`,
+                    floorIndex: newFloorIndex,
+                    isCenteringCommand: true,
+                };
             }
-            return { currentInstructionIndex: nextIndex };
+
+            return newState;
         }
-        return {}; // No change if already at the end
+        return {};
     }),
     goToPreviousInstruction: () => set((state) => {
         const prevIndex = state.currentInstructionIndex - 1;
@@ -135,33 +102,122 @@ const useStore = create((set, get) => ({
         }
         return {};
     }),
-
-    // Action to clear the current route and related state
     clearRouteAndInstructions: () => set({
-        buildRouteTrigger: null, // Stop RouteMap from drawing the path
+        buildRouteTrigger: null,
         isRouteInstructionsVisible: false,
         routeInstructions: [],
-        currentInstructionIndex: 0,
         calculatedPath: null,
-        fromRoom: null, // Clear selection highlights/state
+        fromRoom: null,
         toRoom: null,
     }),
 
-    // Action for QR Code Handling (called by App.jsx on load)
-    setPendingFromRoomId: (roomId) => {
-        const currentRooms = get().rooms;
-        if (currentRooms && currentRooms.length > 0) {
-            const foundRoom = currentRooms.find(r => r.id === roomId);
-            if (foundRoom) {
-                console.log(`[Store] Setting 'from' immediately for ID: ${roomId}. Found:`, foundRoom.name);
-                set({ fromRoom: foundRoom, activeMenu: 'route', pendingFromRoomId: null });
-            } else {
-                console.warn(`[Store] Room ID ${roomId} from URL not found even after load.`);
-                set({ pendingFromRoomId: null }); // Clear anyway
+    // Поиск ближайшего
+    initiateSpecialSearch: (config) => set({
+        fromRoom: null, toRoom: null, calculatedPath: null,
+        specialSearch: {
+            status: config.isFilterable ? 'pending_filters' : 'pending_start_point',
+            config: config, activeFilterId: null, candidates: [], selectedIndex: 0,
+        },
+        highlightedObjectIds: [], activeMenu: null,
+    }),
+    setSpecialSearchFilter: (filterId) => set(state => {
+        if (!state.specialSearch) return {};
+        const newFilterId = state.specialSearch.activeFilterId === filterId ? null : filterId;
+        return { specialSearch: { ...state.specialSearch, activeFilterId: newFilterId } };
+    }),
+    setSpecialSearchCandidates: (candidates) => set(state => {
+        if (!state.specialSearch) return {};
+        return { specialSearch: { ...state.specialSearch, status: 'selection', candidates, selectedIndex: 0 } };
+    }),
+    setSpecialSearchStatus: (status) => set(state => {
+        if (!state.specialSearch) return {};
+        return { specialSearch: { ...state.specialSearch, status } };
+    }),
+    setSpecialSearchIndex: (index) => set(state => {
+        if (!state.specialSearch) return {};
+        return { specialSearch: { ...state.specialSearch, selectedIndex: index } };
+    }),
+    clearSpecialSearch: () => set({ specialSearch: null }),
+    setHighlightedObjectIds: (ids) => set({ highlightedObjectIds: ids, activeMenu: null }),
+    resetStartPointSelection: () => set(state => {
+        if (!state.specialSearch) return {};
+        return {
+            fromRoom: null,
+            specialSearch: {
+                ...state.specialSearch,
+                status: state.specialSearch.config.isFilterable ? 'pending_filters' : 'pending_start_point',
+                candidates: [],
             }
-        } else {
-            console.log(`[Store] Storing pendingFromRoomId: ${roomId}`);
-            set({ pendingFromRoomId: roomId });
+        };
+    }),
+
+    calculateNearestObjects: async () => {
+        const { fromRoom, specialSearch, rooms, graphData } = get();
+        const { graph, nodeCoords } = graphData;
+        if (!fromRoom || !specialSearch || !graph || !nodeCoords) return;
+
+        const calculationContext = {
+            fromId: fromRoom.id,
+            filterId: specialSearch.activeFilterId,
+        };
+        get().setSpecialSearchStatus('calculating');
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        const getGraphNodeIdForCalc = (item) => {
+            if (!item?.id || !nodeCoords) return null;
+            const candidates = Array.from(nodeCoords.keys()).filter(key => key.startsWith(`icon-${item.id}`));
+            if (candidates.length > 0) return candidates[0];
+
+            console.warn(`Узел для объекта "${item.id}" не найден в графе.`);
+            return null;
+        };
+
+        const startNodeId = getGraphNodeIdForCalc(fromRoom);
+        if (!startNodeId) {
+            console.error("Стартовый узел не найден в графе:", fromRoom);
+            get().setSpecialSearchCandidates([]);
+            return;
+        }
+
+        const { distances } = findAllDistances(graph, startNodeId);
+        if (!distances) {
+            get().setSpecialSearchCandidates([]);
+            return;
+        }
+
+        const { config, activeFilterId } = specialSearch;
+
+        let potentialCandidates = rooms.filter(r => {
+            const name = r.name?.toLowerCase() || '';
+            const description = r.description?.toLowerCase() || '';
+            return name.includes(config.targetCategory) || description.includes(config.targetCategory);
+        });
+
+        if (activeFilterId && config.isFilterable) {
+            const filterConfig = config.filterProperties.find(f => f.id === activeFilterId);
+            if (filterConfig && filterConfig.searchKeyword) {
+                const keyword = filterConfig.searchKeyword.toLowerCase();
+                potentialCandidates = potentialCandidates.filter(room => {
+                    const name = room.name?.toLowerCase() || '';
+                    const description = room.description?.toLowerCase() || '';
+                    return name.includes(keyword) || description.includes(keyword);
+                });
+            }
+        }
+
+        const results = potentialCandidates.map(room => {
+            const endNodeId = getGraphNodeIdForCalc(room);
+            const distance = endNodeId ? distances.get(endNodeId) : Infinity;
+            return (distance !== Infinity && distance > 0) ? { room, distance } : null;
+        }).filter(Boolean).sort((a, b) => a.distance - b.distance);
+
+        const currentState = get();
+        if (
+            currentState.specialSearch &&
+            currentState.fromRoom?.id === calculationContext.fromId &&
+            currentState.specialSearch.activeFilterId === calculationContext.filterId
+        ) {
+            get().setSpecialSearchCandidates(results);
         }
     },
 }));
