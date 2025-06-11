@@ -7,7 +7,7 @@ import '../BottomMenu.css';
 import useStore from './store.jsx';
 
 function BottomMenu() {
-    const { activeMenu, setActiveMenu, setIsBuildingModalOpen} = useStore();
+    const {activeMenu, setActiveMenu, setIsBuildingModalOpen} = useStore();
 
     const handleMapClick = () => {
         setActiveMenu(null);

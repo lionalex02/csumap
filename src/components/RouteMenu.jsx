@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import Select from 'react-select';
 import '../RouteMenu.css';
 import useStore from './store.jsx';
@@ -43,7 +43,7 @@ function RouteMenu() {
                 } else {
                     label = `ID: ${room.id}`;
                 }
-                return { value: room.id, label: label, data: room };
+                return {value: room.id, label: label, data: room};
             })
             .sort((a, b) => a.label.localeCompare(b.label));
     }, [rooms]);

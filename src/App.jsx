@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useEffect } from 'react';
+import React, {useEffect} from 'react';
 import './App.css';
 import BuildingMap from "./components/BuildingMap.jsx";
 import BottomMenu from "./components/BottomMenu.jsx";
@@ -10,7 +10,7 @@ import SpecialSearchUI from './components/SpecialSearchUI.jsx';
 import HighlightOverlay from './components/HighlightOverlay.jsx';
 
 function App() {
-    const { activeMenu, setPendingFromRoomId } = useStore();
+    const {activeMenu, setPendingFromRoomId} = useStore();
 
     const currentRouteNodeId = useStore(state => state.currentRouteNodeId);
     const graphData = useStore(state => state.graphData);
@@ -41,12 +41,12 @@ function App() {
 
     return (
         <>
-            <Header />
-            <BuildingMap isMapActive={!activeMenu} />
-            <BottomMenu />
-            <RouteInstructionsModal />
-            <HighlightOverlay />
-            <SpecialSearchUI />
+            <Header/>
+            <BuildingMap isMapActive={!activeMenu}/>
+            <BottomMenu/>
+            <RouteInstructionsModal/>
+            <HighlightOverlay/>
+            <SpecialSearchUI/>
         </>
     );
 }

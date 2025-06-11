@@ -1,25 +1,27 @@
 // src/components/RouteMap.jsx
 
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { Shape, Text } from 'react-konva';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {Shape, Text} from 'react-konva';
 import useStore from './store.jsx';
-import { buildGraph } from './graph.js';
-import { findShortestPath } from './dijkstra.js';
+import {buildGraph} from './graph.js';
+import {findShortestPath} from './dijkstra.js';
 
 function getPointAtDistance(points, distance) {
     if (!points || points.length < 2 || typeof distance !== 'number' || isNaN(distance) || distance < 0) return null;
-    if (distance <= 1e-6) return points[0] ? { ...points[0], segmentIndex: 0 } : null;
+    if (distance <= 1e-6) return points[0] ? {...points[0], segmentIndex: 0} : null;
     let cumulativeLength = 0;
     for (let i = 0; i < points.length - 1; i++) {
-        const p1 = points[i]; const p2 = points[i + 1];
+        const p1 = points[i];
+        const p2 = points[i + 1];
         if (!p1 || !p2 || typeof p1.x !== 'number' || typeof p1.y !== 'number' || typeof p2.x !== 'number' || typeof p2.y !== 'number') continue;
-        const dx = p2.x - p1.x; const dy = p2.y - p1.y;
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
         const segmentLength = Math.sqrt(dx * dx + dy * dy);
         if (segmentLength < 1e-6) continue;
         if (cumulativeLength + segmentLength >= distance - 1e-6) {
             const remainingDistance = distance - cumulativeLength;
             const ratio = remainingDistance / segmentLength;
-            return { x: p1.x + dx * ratio, y: p1.y + dy * ratio };
+            return {x: p1.x + dx * ratio, y: p1.y + dy * ratio};
         }
         cumulativeLength += segmentLength;
     }
@@ -36,10 +38,10 @@ function getFloorDisplayName(floorIndex) {
     return String(floorIndex);
 }
 
-function RouteMap({ currentFloorIndex, mapDataPath }) {
+function RouteMap({currentFloorIndex, mapDataPath}) {
     const [isLoadingGraph, setIsLoadingGraph] = useState(true);
     const [errorMsg, setErrorMsg] = useState(null);
-    const graphDataRef = useRef({ graph: null, nodeCoords: null });
+    const graphDataRef = useRef({graph: null, nodeCoords: null});
 
     const buildRouteTrigger = useStore((state) => state.buildRouteTrigger);
     const fromRoom = useStore((state) => state.fromRoom);
@@ -50,7 +52,12 @@ function RouteMap({ currentFloorIndex, mapDataPath }) {
 
     useEffect(() => {
         let isMounted = true;
-        const { setGraphData, setCalculatedPath, setIsRouteInstructionsVisible, setRouteInstructions } = useStore.getState();
+        const {
+            setGraphData,
+            setCalculatedPath,
+            setIsRouteInstructionsVisible,
+            setRouteInstructions
+        } = useStore.getState();
 
         setIsLoadingGraph(true);
         setErrorMsg(null);
@@ -62,23 +69,29 @@ function RouteMap({ currentFloorIndex, mapDataPath }) {
             .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
             .then(data => {
                 if (!isMounted || !data?.layers) return;
-                const pLayers = data.layers.map((l, i) => ({ ...l, floorIndex: i }));
-                const { graph, nodeCoords } = buildGraph(pLayers);
+                const pLayers = data.layers.map((l, i) => ({...l, floorIndex: i}));
+                const {graph, nodeCoords} = buildGraph(pLayers);
                 if (!graph?.size) throw new Error("Граф пуст.");
 
-                graphDataRef.current = { graph, nodeCoords };
+                graphDataRef.current = {graph, nodeCoords};
                 setGraphData(graph, nodeCoords);
             })
-            .catch(error => { if (isMounted) setErrorMsg(`Ошибка данных: ${error.message}`); })
-            .finally(() => { if (isMounted) setIsLoadingGraph(false); });
+            .catch(error => {
+                if (isMounted) setErrorMsg(`Ошибка данных: ${error.message}`);
+            })
+            .finally(() => {
+                if (isMounted) setIsLoadingGraph(false);
+            });
 
-        return () => { isMounted = false; };
+        return () => {
+            isMounted = false;
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mapDataPath]);
 
     const getGraphNodeId = useCallback((item, nodeCoordsMap) => {
         if (!item?.id || !nodeCoordsMap?.size) return null;
-        const { id, name } = item;
+        const {id, name} = item;
         const candidates = [`icon-${id}`, `icon-${id}_door`];
         for (const candidateId of candidates) {
             if (nodeCoordsMap.has(candidateId)) return candidateId;
@@ -90,7 +103,7 @@ function RouteMap({ currentFloorIndex, mapDataPath }) {
     useEffect(() => {
         if (isLoadingGraph) return;
 
-        const { setIsRouteInstructionsVisible, setRouteInstructions, setCalculatedPath } = useStore.getState();
+        const {setIsRouteInstructionsVisible, setRouteInstructions, setCalculatedPath} = useStore.getState();
 
         if (buildRouteTrigger === null) {
             if (calculatedPath !== null) {
@@ -103,8 +116,11 @@ function RouteMap({ currentFloorIndex, mapDataPath }) {
 
         if (processedTriggerRef.current === buildRouteTrigger) return;
 
-        const { graph, nodeCoords } = graphDataRef.current;
-        if (!graph) { setErrorMsg("Данные для маршрута не готовы."); return; }
+        const {graph, nodeCoords} = graphDataRef.current;
+        if (!graph) {
+            setErrorMsg("Данные для маршрута не готовы.");
+            return;
+        }
 
         setCalculatedPath(null);
         setErrorMsg(null);
@@ -136,8 +152,11 @@ function RouteMap({ currentFloorIndex, mapDataPath }) {
                     const currNodeData = nodeCoords.get(finalPath[i]);
                     if (!prevNodeData || !currNodeData) continue;
                     if (prevNodeData.floorIndex !== currNodeData.floorIndex) {
-                        if (i - lastSignificantNodeIndex > 1) { instructions.push({ text: `Следуйте по маршруту на ${getFloorDisplayName(prevNodeData.floorIndex)} этаже` }); }
-                        else if (instructions.length === 0) { instructions.push({ text: `Начните движение на ${getFloorDisplayName(prevNodeData.floorIndex)} этаже` }); }
+                        if (i - lastSignificantNodeIndex > 1) {
+                            instructions.push({text: `Следуйте по маршруту на ${getFloorDisplayName(prevNodeData.floorIndex)} этаже`});
+                        } else if (instructions.length === 0) {
+                            instructions.push({text: `Начните движение на ${getFloorDisplayName(prevNodeData.floorIndex)} этаже`});
+                        }
 
                         let finalTransitionNodeIndex = i;
                         let initialDirection = getTransitionVerb(prevNodeData.floorIndex, currNodeData.floorIndex);
@@ -160,7 +179,7 @@ function RouteMap({ currentFloorIndex, mapDataPath }) {
                         if (verb) {
                             let step = `${verb} на ${targetFloorName} этаж`;
                             if (usesStairs) step += " по лестнице";
-                            instructions.push({ text: step });
+                            instructions.push({text: step});
                         }
                         i = finalTransitionNodeIndex;
                         lastSignificantNodeIndex = finalTransitionNodeIndex;
@@ -168,10 +187,10 @@ function RouteMap({ currentFloorIndex, mapDataPath }) {
                 }
             }
             if (finalPath.length - 1 - lastSignificantNodeIndex > 0) {
-                instructions.push({ text: `Следуйте до пункта назначения: ${toRoom.name || toRoom.description}` });
+                instructions.push({text: `Следуйте до пункта назначения: ${toRoom.name || toRoom.description}`});
             }
 
-            setRouteInstructions(instructions.length > 0 ? instructions : [{ text: `Маршрут до ${toRoom.name || toRoom.description} построен.` }]);
+            setRouteInstructions(instructions.length > 0 ? instructions : [{text: `Маршрут до ${toRoom.name || toRoom.description} построен.`}]);
         } else {
             setErrorMsg("Маршрут не найден.");
         }
@@ -183,7 +202,7 @@ function RouteMap({ currentFloorIndex, mapDataPath }) {
     const renderedPathChevrons = useMemo(() => {
         if (!calculatedPath || calculatedPath.length < 2 || errorMsg) return [];
 
-        const { nodeCoords } = graphDataRef.current;
+        const {nodeCoords} = graphDataRef.current;
         if (!nodeCoords) return [];
 
         const CHEVRON_SIZE = 8;
@@ -236,14 +255,20 @@ function RouteMap({ currentFloorIndex, mapDataPath }) {
 
                 let distanceInSegment = (cumulativeLength === 0) ? CHEVRON_SPACING / 2 : CHEVRON_SPACING - (cumulativeLength % CHEVRON_SPACING);
 
-                while(distanceInSegment < segmentLength) {
+                while (distanceInSegment < segmentLength) {
                     const point = getPointAtDistance([p1, p2], distanceInSegment);
                     if (!point) break;
 
                     const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
 
-                    const bp1 = { x: point.x - CHEVRON_SIZE * Math.cos(angle - CHEVRON_ANGLE_RAD), y: point.y - CHEVRON_SIZE * Math.sin(angle - CHEVRON_ANGLE_RAD) };
-                    const bp2 = { x: point.x - CHEVRON_SIZE * Math.cos(angle + CHEVRON_ANGLE_RAD), y: point.y - CHEVRON_SIZE * Math.sin(angle + CHEVRON_ANGLE_RAD) };
+                    const bp1 = {
+                        x: point.x - CHEVRON_SIZE * Math.cos(angle - CHEVRON_ANGLE_RAD),
+                        y: point.y - CHEVRON_SIZE * Math.sin(angle - CHEVRON_ANGLE_RAD)
+                    };
+                    const bp2 = {
+                        x: point.x - CHEVRON_SIZE * Math.cos(angle + CHEVRON_ANGLE_RAD),
+                        y: point.y - CHEVRON_SIZE * Math.sin(angle + CHEVRON_ANGLE_RAD)
+                    };
 
                     allChevrons.push(
                         <Shape
@@ -275,7 +300,7 @@ function RouteMap({ currentFloorIndex, mapDataPath }) {
     if (isLoadingGraph) return null;
     return (
         <>
-            {errorMsg && <Text x={20} y={50} text={`Ошибка: ${errorMsg}`} fill="darkred" fontSize={16} />}
+            {errorMsg && <Text x={20} y={50} text={`Ошибка: ${errorMsg}`} fill="darkred" fontSize={16}/>}
             {!errorMsg && renderedPathChevrons}
         </>
     );

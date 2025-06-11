@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import '../FeedbackForm.css';
 import useStore from "./store.jsx";
 
 function FeedbackForm() {
 
-    const {isFeedbackFormOpen, setIsFeedbackFormOpen} =  useStore();
+    const {isFeedbackFormOpen, setIsFeedbackFormOpen} = useStore();
     const [emailOrTelegram, setEmailOrTelegram] = useState('');
     const [message, setMessage] = useState('');
 

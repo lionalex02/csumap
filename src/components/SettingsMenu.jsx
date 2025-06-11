@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import '../SettingsMenu.css';
 import useStore from './store';
 import "../FeedbackForm.css"

@@ -1,12 +1,12 @@
 // src/components/store.jsx
 
-import { create } from 'zustand';
-import { findShortestPath, findAllDistances } from './dijkstra.js';
+import {create} from 'zustand';
+import {findShortestPath, findAllDistances} from './dijkstra.js';
 
 export const availableBuildings = [
-    { id: 'building1', name: 'Корпус 1' },
-    { id: 'building2', name: 'Корпус 2' },
-    { id: 'building3', name: 'Корпус 3' },
+    {id: 'building1', name: 'Корпус 1'},
+    {id: 'building2', name: 'Корпус 2'},
+    {id: 'building3', name: 'Корпус 3'},
 ];
 
 const initialFloor = 1;
@@ -22,7 +22,7 @@ const useStore = create((set, get) => ({
     isBuildingModalOpen: false,
     selectedBuilding: availableBuildings[0],
     isFeedbackFormOpen: false,
-    graphData: { graph: null, nodeCoords: null },
+    graphData: {graph: null, nodeCoords: null},
     currentMapFloor: initialFloor,
     pendingFromRoomId: null,
 
@@ -37,37 +37,41 @@ const useStore = create((set, get) => ({
     // --- ACTIONS ---
 
     // Базовые
-    setFromRoom: (room) => set({ fromRoom: room }),
-    setToRoom: (room) => set({ toRoom: room }),
+    setFromRoom: (room) => set({fromRoom: room}),
+    setToRoom: (room) => set({toRoom: room}),
     setRooms: (rooms) => {
         const pendingId = get().pendingFromRoomId;
         if (pendingId && rooms?.length > 0) {
             const foundRoom = rooms.find(r => r.id === pendingId);
             if (foundRoom) {
-                set({ rooms, fromRoom: foundRoom, activeMenu: 'route', pendingFromRoomId: null });
-            } else { set({ rooms, pendingFromRoomId: null }); }
-        } else { set({ rooms }); }
+                set({rooms, fromRoom: foundRoom, activeMenu: 'route', selectedSearchRoom: foundRoom, pendingFromRoomId: null});
+            } else {
+                set({rooms, pendingFromRoomId: null});
+            }
+        } else {
+            set({rooms});
+        }
     },
-    setActiveMenu: (menu) => set({ activeMenu: menu }),
-    setSelectedSearchRoom: (room) => set({ selectedSearchRoom: room }),
-    setCurrentMapFloor: (floorIndex) => set({ currentMapFloor: floorIndex }),
-    setGraphData: (graph, nodeCoords) => set({ graphData: { graph, nodeCoords } }),
-    setPendingFromRoomId: (roomId) => set({ pendingFromRoomId: roomId }),
+    setActiveMenu: (menu) => set({activeMenu: menu}),
+    setSelectedSearchRoom: (room) => set({selectedSearchRoom: room}),
+    setCurrentMapFloor: (floorIndex) => set({currentMapFloor: floorIndex}),
+    setGraphData: (graph, nodeCoords) => set({graphData: {graph, nodeCoords}}),
+    setPendingFromRoomId: (roomId) => set({pendingFromRoomId: roomId}),
 
     // Модальные окна
-    setIsBuildingModalOpen: (isOpen) => set({ isBuildingModalOpen: isOpen }),
-    setIsFeedbackFormOpen: (isOpen) => set({ isFeedbackFormOpen: isOpen }),
+    setIsBuildingModalOpen: (isOpen) => set({isBuildingModalOpen: isOpen}),
+    setIsFeedbackFormOpen: (isOpen) => set({isFeedbackFormOpen: isOpen}),
 
     // Управление маршрутом
     triggerRouteBuild: () => {
         if (get().fromRoom && get().toRoom) {
-            set({ buildRouteTrigger: Date.now() });
+            set({buildRouteTrigger: Date.now()});
         }
     },
-    setCalculatedPath: (path) => set({ calculatedPath: path }),
+    setCalculatedPath: (path) => set({calculatedPath: path}),
 
     // Инструкции
-    setIsRouteInstructionsVisible: (isVisible) => set({ isRouteInstructionsVisible: isVisible }),
+    setIsRouteInstructionsVisible: (isVisible) => set({isRouteInstructionsVisible: isVisible}),
     setRouteInstructions: (instructions) => set({
         routeInstructions: instructions,
         currentInstructionIndex: 0,
@@ -80,7 +84,7 @@ const useStore = create((set, get) => ({
             const floorMatch = nextInstruction.text.match(/на (\d+) этаж/);
             const newFloorIndex = floorMatch ? parseInt(floorMatch[1], 10) : null;
 
-            const newState = { currentInstructionIndex: nextIndex };
+            const newState = {currentInstructionIndex: nextIndex};
 
             if (newFloorIndex !== null && newFloorIndex !== state.currentMapFloor) {
                 newState.currentMapFloor = newFloorIndex;
@@ -98,7 +102,7 @@ const useStore = create((set, get) => ({
     goToPreviousInstruction: () => set((state) => {
         const prevIndex = state.currentInstructionIndex - 1;
         if (prevIndex >= 0) {
-            return { currentInstructionIndex: prevIndex };
+            return {currentInstructionIndex: prevIndex};
         }
         return {};
     }),
@@ -123,22 +127,22 @@ const useStore = create((set, get) => ({
     setSpecialSearchFilter: (filterId) => set(state => {
         if (!state.specialSearch) return {};
         const newFilterId = state.specialSearch.activeFilterId === filterId ? null : filterId;
-        return { specialSearch: { ...state.specialSearch, activeFilterId: newFilterId } };
+        return {specialSearch: {...state.specialSearch, activeFilterId: newFilterId}};
     }),
     setSpecialSearchCandidates: (candidates) => set(state => {
         if (!state.specialSearch) return {};
-        return { specialSearch: { ...state.specialSearch, status: 'selection', candidates, selectedIndex: 0 } };
+        return {specialSearch: {...state.specialSearch, status: 'selection', candidates, selectedIndex: 0}};
     }),
     setSpecialSearchStatus: (status) => set(state => {
         if (!state.specialSearch) return {};
-        return { specialSearch: { ...state.specialSearch, status } };
+        return {specialSearch: {...state.specialSearch, status}};
     }),
     setSpecialSearchIndex: (index) => set(state => {
         if (!state.specialSearch) return {};
-        return { specialSearch: { ...state.specialSearch, selectedIndex: index } };
+        return {specialSearch: {...state.specialSearch, selectedIndex: index}};
     }),
-    clearSpecialSearch: () => set({ specialSearch: null }),
-    setHighlightedObjectIds: (ids) => set({ highlightedObjectIds: ids, activeMenu: null }),
+    clearSpecialSearch: () => set({specialSearch: null}),
+    setHighlightedObjectIds: (ids) => set({highlightedObjectIds: ids, activeMenu: null}),
     resetStartPointSelection: () => set(state => {
         if (!state.specialSearch) return {};
         return {
@@ -152,8 +156,8 @@ const useStore = create((set, get) => ({
     }),
 
     calculateNearestObjects: async () => {
-        const { fromRoom, specialSearch, rooms, graphData } = get();
-        const { graph, nodeCoords } = graphData;
+        const {fromRoom, specialSearch, rooms, graphData} = get();
+        const {graph, nodeCoords} = graphData;
         if (!fromRoom || !specialSearch || !graph || !nodeCoords) return;
 
         const calculationContext = {
@@ -179,13 +183,13 @@ const useStore = create((set, get) => ({
             return;
         }
 
-        const { distances } = findAllDistances(graph, startNodeId);
+        const {distances} = findAllDistances(graph, startNodeId);
         if (!distances) {
             get().setSpecialSearchCandidates([]);
             return;
         }
 
-        const { config, activeFilterId } = specialSearch;
+        const {config, activeFilterId} = specialSearch;
 
         let potentialCandidates = rooms.filter(r => {
             const name = r.name?.toLowerCase() || '';
@@ -208,7 +212,7 @@ const useStore = create((set, get) => ({
         const results = potentialCandidates.map(room => {
             const endNodeId = getGraphNodeIdForCalc(room);
             const distance = endNodeId ? distances.get(endNodeId) : Infinity;
-            return (distance !== Infinity && distance > 0) ? { room, distance } : null;
+            return (distance !== Infinity && distance > 0) ? {room, distance} : null;
         }).filter(Boolean).sort((a, b) => a.distance - b.distance);
 
         const currentState = get();

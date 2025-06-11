@@ -25,10 +25,10 @@ export function findShortestPath(graph, nodeCoords, startNodeId, endNodeId) {
     });
 
     distances.set(startNodeId, 0);
-    queue.push({ nodeId: startNodeId, distance: 0 });
+    queue.push({nodeId: startNodeId, distance: 0});
 
     while (queue.length > 0) {
-        const { nodeId: currentNodeId, distance: currentDistance } = queue.pop();
+        const {nodeId: currentNodeId, distance: currentDistance} = queue.pop();
 
         if (currentDistance > distances.get(currentNodeId)) {
             continue;
@@ -47,7 +47,7 @@ export function findShortestPath(graph, nodeCoords, startNodeId, endNodeId) {
                 if (distanceToNeighbor < distances.get(neighborId)) {
                     distances.set(neighborId, distanceToNeighbor);
                     previousNodes.set(neighborId, currentNodeId);
-                    queue.push({ nodeId: neighborId, distance: distanceToNeighbor });
+                    queue.push({nodeId: neighborId, distance: distanceToNeighbor});
                 }
             });
         }
@@ -93,7 +93,7 @@ export function findShortestPath(graph, nodeCoords, startNodeId, endNodeId) {
 export function findAllDistances(graph, startNodeId) {
     if (!graph.has(startNodeId)) {
         console.error(`[Dijkstra] Стартовый узел '${startNodeId}' не найден в графе.`);
-        return { distances: new Map() };
+        return {distances: new Map()};
     }
 
     const distances = new Map();
@@ -104,10 +104,10 @@ export function findAllDistances(graph, startNodeId) {
     });
 
     distances.set(startNodeId, 0);
-    queue.push({ nodeId: startNodeId, distance: 0 });
+    queue.push({nodeId: startNodeId, distance: 0});
 
     while (queue.length > 0) {
-        const { nodeId: currentNodeId, distance: currentDistance } = queue.pop();
+        const {nodeId: currentNodeId, distance: currentDistance} = queue.pop();
 
         if (currentDistance > distances.get(currentNodeId)) {
             continue;
@@ -122,11 +122,11 @@ export function findAllDistances(graph, startNodeId) {
 
                 if (distanceToNeighbor < distances.get(neighborId)) {
                     distances.set(neighborId, distanceToNeighbor);
-                    queue.push({ nodeId: neighborId, distance: distanceToNeighbor });
+                    queue.push({nodeId: neighborId, distance: distanceToNeighbor});
                 }
             });
         }
     }
 
-    return { distances };
+    return {distances};
 }
